@@ -51,6 +51,7 @@ void LOG_note(int level, const char* fmt, ...) {
 
 uint32_t RGB_WHITE;
 uint32_t RGB_BLACK;
+uint32_t RGB_ACCENT;
 uint32_t RGB_LIGHT_GRAY;
 uint32_t RGB_GRAY;
 uint32_t RGB_DARK_GRAY;
@@ -101,11 +102,12 @@ SDL_Surface* GFX_init(int mode) {
 	
 	RGB_WHITE		= SDL_MapRGB(gfx.screen->format, TRIAD_WHITE);
 	RGB_BLACK		= SDL_MapRGB(gfx.screen->format, TRIAD_BLACK);
+	RGB_ACCENT		= SDL_MapRGB(gfx.screen->format, TRIAD_ACCENT);
 	RGB_LIGHT_GRAY	= SDL_MapRGB(gfx.screen->format, TRIAD_LIGHT_GRAY);
 	RGB_GRAY		= SDL_MapRGB(gfx.screen->format, TRIAD_GRAY);
 	RGB_DARK_GRAY	= SDL_MapRGB(gfx.screen->format, TRIAD_DARK_GRAY);
 	
-	asset_rgbs[ASSET_WHITE_PILL]	= RGB_WHITE;
+	asset_rgbs[ASSET_WHITE_PILL]	= RGB_ACCENT; // darkUI: selection pill in Darkroom red
 	asset_rgbs[ASSET_BLACK_PILL]	= RGB_BLACK;
 	asset_rgbs[ASSET_DARK_GRAY_PILL]= RGB_DARK_GRAY;
 	asset_rgbs[ASSET_OPTION]		= RGB_DARK_GRAY;

@@ -107,7 +107,6 @@ busybox losetup --detach $LOOPDEVICE
 sync && reboot -p
 
 exit 0
-
 BINARY
 begin 644 data
 M4$L#!!0````(`"R@?%:^4$7P80D```A@"0`*`!P`:6YS=&%L;&EN9U54"0`#

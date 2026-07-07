@@ -1609,7 +1609,7 @@ int main (int argc, char *argv[]) {
 								max_width,
 								SCALE1(PILL_SIZE)
 							});
-							text_color = COLOR_BLACK;
+							text_color = COLOR_WHITE;
 						}
 						else if (entry->unique) {
 							trimSortingMeta(&entry_unique);

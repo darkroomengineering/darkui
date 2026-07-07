@@ -4462,7 +4462,7 @@ static void Menu_loop(void) {
 						ow,
 						SCALE1(PILL_SIZE)
 					});
-					text_color = COLOR_BLACK;
+					text_color = COLOR_WHITE;
 				}
 				else {
 					// shadow

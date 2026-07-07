@@ -219,7 +219,14 @@ void PLAT_blitRenderer(GFX_Renderer* renderer) {
 }
 
 void PLAT_flip(SDL_Surface* IGNORED, int ignored) {
-	
+
+	// dev-only: MINUI_SHOT=/path/out.bmp dumps the first frame and exits
+	char* shot_path = getenv("MINUI_SHOT");
+	if (shot_path) {
+		SDL_SaveBMP(vid.screen, shot_path);
+		exit(0);
+	}
+
 	if (!vid.blit) {
 		resizeVideo(device_width,device_height,FIXED_PITCH); // !!!???
 		SDL_UpdateTexture(vid.texture,NULL,vid.screen->pixels,vid.screen->pitch);

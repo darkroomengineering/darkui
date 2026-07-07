@@ -55,6 +55,7 @@ void LOG_note(int level, const char* fmt, ...);
 
 extern uint32_t RGB_WHITE;
 extern uint32_t RGB_BLACK;
+extern uint32_t RGB_ACCENT;
 extern uint32_t RGB_LIGHT_GRAY;
 extern uint32_t RGB_GRAY;
 extern uint32_t RGB_DARK_GRAY;

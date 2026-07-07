@@ -124,7 +124,7 @@
 
 ///////////////////////////////
 
-#define SDCARD_PATH "/Users/shauninman/Projects/Personal/MinUI/workspace/macos/FAKESD"
+#define SDCARD_PATH "/Users/frz/Developer/@darkroom/darkui/workspace/macos/FAKESD"
 #define MUTE_VOLUME_RAW 63 // 0 unintuitively is 100% volume
 
 ///////////////////////////////
