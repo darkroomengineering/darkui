@@ -82,8 +82,7 @@ clean:
 
 setup: name
 	# ----------------------------------------------------
-	# make sure we're running in an input device
-	tty -s 
+	# (upstream required a TTY here; darkUI builds headlessly)
 	
 	# ready fresh build
 	rm -rf ./build
