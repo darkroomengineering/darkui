@@ -32,17 +32,6 @@ void LOG_note(int level, const char* fmt, ...);
 
 ///////////////////////////////
 
-// TODO: these only seem to be used by a tmp.pak in trimui (model s)
-// used by minarch, optionally defined in platform.h
-#ifndef PLAT_PAGE_BPP
-#define PLAT_PAGE_BPP 	FIXED_BPP
-#endif
-#define PLAT_PAGE_DEPTH (PLAT_PAGE_BPP * 8)
-#define PLAT_PAGE_PITCH (PAGE_WIDTH * PLAT_PAGE_BPP)
-#define PLAT_PAGE_SIZE	(PLAT_PAGE_PITCH * PAGE_HEIGHT)
-
-///////////////////////////////
-
 #define RGBA_MASK_AUTO	0x0, 0x0, 0x0, 0x0
 #define RGBA_MASK_565	0xF800, 0x07E0, 0x001F, 0x0000
 #define RGBA_MASK_8888	0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000
@@ -179,9 +168,6 @@ int GFX_wrapText(TTF_Font* font, char* str, int max_width, int max_lines);
 
 #define GFX_getScaler PLAT_getScaler		// scaler_t:(GFX_Renderer* renderer)
 #define GFX_blitRenderer PLAT_blitRenderer	// void:(GFX_Renderer* renderer)
-
-scaler_t GFX_getAAScaler(GFX_Renderer* renderer);
-void GFX_freeAAScaler(void);
 
 // NOTE: all dimensions should be pre-scaled
 void GFX_blitAsset(int asset, SDL_Rect* src_rect, SDL_Surface* dst, SDL_Rect* dst_rect);
