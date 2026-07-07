@@ -14,6 +14,8 @@ endif
 
 REQUIRES_COMMANDER=other/DinguxCommander
 
+.PHONY: all early clean
+
 all: readmes
 	cd ./overclock && make
 	cd ./boot && ./build.sh

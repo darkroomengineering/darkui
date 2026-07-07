@@ -109,7 +109,6 @@ int main (int argc, char *argv[]) {
 				case CODE_MENU:
 					menu_pressed = val;
 				break;
-				break;
 				case CODE_PLUS:
 					up_pressed = up_just_pressed = val;
 					if (val) up_repeat_at = now + 300;

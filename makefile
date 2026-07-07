@@ -25,7 +25,7 @@ RELEASE_NAME=$(RELEASE_BASE)-$(RELEASE_DOT)
 
 ###########################################################
 
-.PHONY: build
+.PHONY: all shell name build system cores common clean setup done tidy package
 
 export MAKEFLAGS=--no-print-directory
 
