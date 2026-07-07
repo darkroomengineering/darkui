@@ -54,7 +54,6 @@ static int fast_forward = 0;
 static int overclock = 1; // normal
 static int has_custom_controllers = 0;
 static int gamepad_type = 0; // index in gamepad_labels/gamepad_values
-static int downsample = 0; // set to 1 to convert from 8888 to 565
 
 // these are no longer constants as of the RG CubeXX (even though they look like it)
 static int DEVICE_WIDTH = 0; // FIXED_WIDTH;
@@ -1885,6 +1884,7 @@ static bool environment_callback(unsigned cmd, void *data) { // copied from pico
 	case RETRO_ENVIRONMENT_SET_PERFORMANCE_LEVEL: { /* 8 */
 		// puts("RETRO_ENVIRONMENT_SET_PERFORMANCE_LEVEL");
 		// TODO: used by fceumm at least
+		break;
 	}
 	case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: { /* 9 */
 		const char **out = (const char **)data;
@@ -1899,7 +1899,6 @@ static bool environment_callback(unsigned cmd, void *data) { // copied from pico
 		if (*format != RETRO_PIXEL_FORMAT_RGB565) { // TODO: pull from platform.h?
 			/* 565 is only supported format */
 			return false;
-			// downsample = 1; // TODO: not ready for primetime yet
 		}
 		break;
 	}
@@ -2496,48 +2495,9 @@ static double cpu_double = 0;
 static double use_double = 0;
 static uint32_t sec_start = 0;
 
-#ifdef USES_SWSCALER
-	static int fit = 1;
-#else
-	static int fit = 0;
-#endif	
-
-// buffer to convert xrgb8888 to rgb565
-static void* buffer = NULL;
-static void buffer_dealloc(void) {
-	if (!buffer) return;
-	free(buffer);
-	buffer = NULL;
-}
-static void buffer_realloc(int w, int h, int p) {
-	buffer_dealloc();
-	buffer = malloc((w * FIXED_BPP) * h);
-	// LOG_info("buffer_realloc(%i,%i,%i)\n", w,h,p);
-}
-static void buffer_downsample(const void *data, unsigned width, unsigned height, size_t pitch) {
-	// from picoarch! https://git.crowdedwood.com/picoarch/tree/video.c#n51
-	const uint32_t *input = data;
-	uint16_t *output = buffer;
-	size_t extra = pitch / sizeof(uint32_t) - width;
-
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			*output =  (*input & 0xF80000) >> 8;
-			*output |= (*input & 0xFC00) >> 5;
-			*output |= (*input & 0xF8) >> 3;
-			input++;
-			output++;
-		}
-
-		input += extra; // TODO: commenting this out fixes geolith when cropped, it appears to be lying about the pitch...
-	}
-}
-
 static void selectScaler(int src_w, int src_h, int src_p) {
 	LOG_info("selectScaler\n");
-	
-	if (downsample) buffer_realloc(src_w,src_h,src_p);
-	
+
 	int src_x,src_y,dst_x,dst_y,dst_w,dst_h,dst_p,scale;
 	double aspect;
 	
@@ -2633,28 +2593,6 @@ static void selectScaler(int src_w, int src_h, int src_p) {
 			dst_p = DEVICE_PITCH;
 			dst_x = (DEVICE_WIDTH  - scaled_w) / 2; // should always be positive
 			dst_y = (DEVICE_HEIGHT - scaled_h) / 2; // should always be positive
-		}
-	}
-	else if (fit) {
-		// these both will use a generic nn scaler
-		if (scaling==SCALE_FULLSCREEN) {
-			sprintf(scaler_name, "full fit");
-			dst_w = DEVICE_WIDTH;
-			dst_h = DEVICE_HEIGHT;
-			dst_p = DEVICE_PITCH;
-			scale = -1; // nearest neighbor
-		}
-		else {
-			double scale_f = MIN(((double)DEVICE_WIDTH)/aspect_w, ((double)DEVICE_HEIGHT)/aspect_h);
-			LOG_info("scale_f:%f\n", scale_f);
-			
-			sprintf(scaler_name, "aspect fit");
-			dst_w = aspect_w * scale_f;
-			dst_h = aspect_h * scale_f;
-			dst_p = DEVICE_PITCH;
-			dst_x = (DEVICE_WIDTH  - dst_w) / 2;
-			dst_y = (DEVICE_HEIGHT - dst_h) / 2;
-			scale = (scale_f==1.0 && dst_w==src_w && dst_h==src_h) ? 1 : -1;
 		}
 	}
 	else {
@@ -2761,11 +2699,6 @@ static void selectScaler(int src_w, int src_h, int src_p) {
 	// 	aspect_w,aspect_h
 	// );
 
-	if (fit) {
-		dst_w = DEVICE_WIDTH;
-		dst_h = DEVICE_HEIGHT;
-	}
-	
 	// if (screen->w!=dst_w || screen->h!=dst_w || screen->pitch!=dst_p) {
 		screen = GFX_resize(dst_w,dst_h,dst_p);
 	// }
@@ -2799,9 +2732,7 @@ static void video_refresh_callback_main(const void *data, unsigned width, unsign
 	if (!data) return;
 
 	fps_ticks += 1;
-	
-	if (downsample) pitch /= 2; // everything expects 16 but we're downsampling from 32
-	
+
 	// if source has changed size (or forced by dst_p==0)
 	// eg. true src + cropped src + fixed dst + cropped dst
 	if (renderer.dst_p==0 || width!=renderer.true_w || height!=renderer.true_h) {
@@ -2830,13 +2761,7 @@ static void video_refresh_callback_main(const void *data, unsigned width, unsign
 		blitBitmapText(debug_text,-x,-y,(uint16_t*)data,pitch/2, width,height);
 	}
 	
-	if (downsample) {
-		buffer_downsample(data,width,height,pitch*2);
-		renderer.src = buffer;
-	}
-	else {
-		renderer.src = (void*)data;
-	}
+	renderer.src = (void*)data;
 	renderer.dst = screen->pixels;
 	// LOG_info("video_refresh_callback: %ix%i@%i %ix%i@%i\n",width,height,pitch,screen->w,screen->h,screen->pitch);
 	
@@ -4823,8 +4748,6 @@ finish:
 	SND_quit();
 	PAD_quit();
 	GFX_quit();
-	
-	buffer_dealloc();
-	
+
 	return EXIT_SUCCESS;
 }
