@@ -115,7 +115,7 @@ SDL_Surface* GFX_init(int mode) {
 	asset_rgbs[ASSET_PAGE_BG]		= RGB_WHITE;
 	asset_rgbs[ASSET_STATE_BG]		= RGB_WHITE;
 	asset_rgbs[ASSET_PAGE]			= RGB_BLACK;
-	asset_rgbs[ASSET_BAR]			= RGB_WHITE;
+	asset_rgbs[ASSET_BAR]			= RGB_ACCENT; // darkUI
 	asset_rgbs[ASSET_BAR_BG]		= RGB_BLACK;
 	asset_rgbs[ASSET_BAR_BG_MENU]	= RGB_DARK_GRAY;
 	asset_rgbs[ASSET_UNDERLINE]		= RGB_GRAY;
@@ -754,6 +754,13 @@ int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting) {
 		ow = SCALE1(PILL_SIZE);
 		if (show_wifi) ow += ww;
 
+		// darkUI: numeric battery percentage
+		char charge_str[8];
+		sprintf(charge_str, "%i%%", pwr.charge);
+		SDL_Surface* charge_txt = TTF_RenderUTF8_Blended(font.tiny, charge_str, COLOR_LIGHT_TEXT);
+		int cw = charge_txt->w + SCALE1(6);
+		ow += cw;
+
 		ox = dst->w - SCALE1(PADDING) - ow;
 		oy = SCALE1(PADDING);
 		GFX_blitPill(gfx.mode==MODE_MAIN ? ASSET_DARK_GRAY_PILL : ASSET_BLACK_PILL, dst, &(SDL_Rect){
@@ -772,6 +779,12 @@ int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting) {
 			GFX_blitAsset(ASSET_WIFI, NULL, dst, &(SDL_Rect){x,y});
 			ox += ww;
 		}
+		SDL_BlitSurface(charge_txt, NULL, dst, &(SDL_Rect){
+			ox + SCALE1(9),
+			oy + (SCALE1(PILL_SIZE) - charge_txt->h) / 2
+		});
+		ox += cw;
+		SDL_FreeSurface(charge_txt);
 		GFX_blitBattery(dst, &(SDL_Rect){ox,oy});
 	}
 	
