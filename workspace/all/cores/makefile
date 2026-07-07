@@ -35,7 +35,7 @@ $1_BUILD_PATH ?= $(1)
 src/$(1):
 	mkdir -p src
 	cd src && git clone $(if $($1_HASH),,--depth 1) --recursive $$($(1)_REPO) $(1)
-	$(if $($1_HASH),cd src/$$($1_BUILD_PATH) && git checkout $($1_HASH) && echo $($1_HASH),)
+	$(if $($1_HASH),cd src/$$($1_BUILD_PATH) && git checkout $($1_HASH) && git submodule update --init --recursive && echo $($1_HASH),)
 
 src/$(1)/.patched: src/$(1)
 	(test ! -f patches/$(1).patch) || (test -f src/$(1)/.patched) || (cd src/$(1) && $(PATCH) -p1 < ../../patches/$(1).patch && touch .patched && true)
@@ -46,7 +46,7 @@ src/$(1)/.patched-all:
 
 output/$(1)_libretro.so: src/$(1)/.patched src/$(1)/.patched-all
 	mkdir -p output
-	cd src/$$($1_BUILD_PATH) && $$($1_MAKE) $(PROCS)
+	cd src/$$($1_BUILD_PATH) && $$($1_MAKE) $(if $($1_PROCS),$($1_PROCS),$(PROCS))
 	mv src/$$($1_BUILD_PATH)/$(if $($(1)_CORE),$($(1)_CORE),$(1)_libretro.so) ./output
 
 clone-$(1): src/$(1)
