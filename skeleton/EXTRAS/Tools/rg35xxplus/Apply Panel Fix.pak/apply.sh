@@ -104,6 +104,10 @@ case $CF-$HT-$VT in
 	HT_OFFSET=-2 # 768
 	VT_OFFSET=-4 # 521
 	;;
+24-720-560) # 35xxSP stock V1.1.5 (frz) — 59.52Hz stock, 59.99Hz patched
+	HT_OFFSET=-3 # 717
+	VT_OFFSET=-2 # 558
+	;;
 24-770-520) # Ry's 35xxSP
 	HT_OFFSET=-2 # 768
 	VT_OFFSET= 1 # 521
