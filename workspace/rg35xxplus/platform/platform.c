@@ -378,7 +378,7 @@ int PLAT_shouldWake(void) {
 
 ///////////////////////////////
 
-// based on rgb30 + tg5040 + m17
+// hdmi hotplug state is exposed via a switch class sysfs node
 #define HDMI_STATE_PATH "/sys/class/switch/hdmi/cable.0/state" // TODO: can detect but doesn't update automatically
 #define BLANK_PATH "/sys/class/graphics/fb0/blank"
 

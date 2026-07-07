@@ -17,6 +17,8 @@ REQUIRES_SDL2=other/sdl2
 REQUIRES_DTC=other/dtc
 REQUIRES_FBSET=other/fbset
 
+.PHONY: all early clean
+
 all: readmes
 	cd boot && ./build.sh
 	cd init && make
@@ -25,6 +27,8 @@ all: readmes
 early: $(REQUIRES_UNZIP60) $(REQUIRES_SDL2) $(REQUIRES_DTC) $(REQUIRES_FBSET)
 	mkdir -p other
 	cd $(REQUIRES_DTC) && CC=${CROSS_COMPILE}gcc make NO_PYTHON=1 dtc
+	# recipe name is inherited from upstream's trimuismart port; it's just a
+	# filename in the vendored unzip60 tree and is correct here regardless of platform
 	cd $(REQUIRES_UNZIP60) && make -f unix/Makefile.trimuismart unzip
 	cd $(REQUIRES_FBSET) && make
 	cd $(REQUIRES_SDL2) && CFLAGS="-O2 -march=armv8-a+crc -mtune=cortex-a53 -mcpu=cortex-a53 -ffast-math -ftree-vectorize" \
@@ -64,6 +68,8 @@ early: $(REQUIRES_UNZIP60) $(REQUIRES_SDL2) $(REQUIRES_DTC) $(REQUIRES_FBSET)
 	
 clean:
 	cd boot && rm -rf output
+	# see the `early` target above: recipe name is inherited from upstream's
+	# trimuismart port and matches the file that ships in the vendored tree
 	cd $(REQUIRES_UNZIP60) && make -f unix/Makefile.trimuismart clean
 	cd $(REQUIRES_FBSET) && make clean
 	
