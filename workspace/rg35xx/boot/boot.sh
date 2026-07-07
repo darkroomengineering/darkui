@@ -42,7 +42,7 @@ UPDATE_PATH=${SDCARD_PATH}${UPDATE_FRAG}
 
 # is there an update available?
 if [ -f $UPDATE_PATH ]; then
-	FLAG_PATH=/misc/.minstalled
+	FLAG_PATH=/misc/.darkuinstalled
 	if [ ! -f $FLAG_PATH ]; then
 		ACTION=installing
 	else
@@ -107,4 +107,3 @@ busybox losetup --detach $LOOPDEVICE
 sync && reboot -p
 
 exit 0
-

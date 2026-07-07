@@ -1,0 +1,11 @@
+darkUI is a fork of MinUI (MinUI) by Shaun Inman
+(https://github.com/shauninman/MinUI).
+
+Upstream publishes no license file. The author states in the upstream
+README: "Please feel free to fork or learn from any of my repos."
+This fork exists under that permission, with full attribution; all
+launcher and frontend design and engineering is Shaun Inman's work.
+
+Release zips additionally bundle libretro cores built from their
+respective upstream repositories; each core remains under its own
+license (predominantly GPL). Sources are listed in workspace/all/cores/makefile and workspace/rg35xx/cores/makefile.
