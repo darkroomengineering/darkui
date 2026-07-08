@@ -1555,10 +1555,10 @@ static int setFastForward(int enable) {
 
 static uint32_t buttons = 0; // RETRO_DEVICE_ID_JOYPAD_* buttons
 static int ignore_menu = 0;
+static int show_setting = 0; // 1=brightness, 2=volume; drawn over the game frame in video_refresh_callback_main
 static void input_poll_callback(void) {
 	PAD_poll();
 
-	int show_setting = 0;
 	PWR_update(NULL, &show_setting, Menu_beforeSleep, Menu_afterSleep);
 
 	// I _think_ this can stay as is...
@@ -2671,6 +2671,17 @@ static void video_refresh_callback_main(const void *data, unsigned width, unsign
 	// LOG_info("video_refresh_callback: %ix%i@%i %ix%i@%i\n",width,height,pitch,screen->w,screen->h,screen->pitch);
 
 	GFX_blitRenderer(&renderer);
+
+	// Draw the brightness/volume overlay over the game frame (M+volume / volume rocker).
+	// Framebuffer platforms (rg35xx/SDL1.2) present the screen surface, so drawing onto it
+	// here is enough. GPU platforms (rg35xxplus/SDL2) upload the raw game buffer straight to
+	// a texture and bypass the screen surface, so PLAT_setHardwareGroup arms a device-resolution
+	// overlay that PLAT_flip composites over the game. Called every frame (0 clears it).
+	if (show_setting) {
+		GFX_blitHardwareGroup(screen, show_setting);
+		if (!GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
+	}
+	PLAT_setHardwareGroup(show_setting);
 
 	if (!thread_video) GFX_flip(screen);
 	last_flip_time = SDL_GetTicks();

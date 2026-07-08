@@ -422,6 +422,10 @@ scaler_t PLAT_getScaler(GFX_Renderer* renderer) {
 	}
 }
 
+// No-op on rg35xx: the scaler renders into the screen surface (below) and PLAT_flip presents it,
+// so the in-game overlay drawn by minarch onto that surface is already displayed.
+void PLAT_setHardwareGroup(int show_setting) { (void)show_setting; }
+
 void PLAT_blitRenderer(GFX_Renderer* renderer) {
 	if (effect_type!=next_effect) {
 		effect_type = next_effect;

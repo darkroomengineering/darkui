@@ -22,7 +22,8 @@
 #define BRIGHTNESS_MAX 	10
 
 // uses different codes from SDL
-#define CODE_MENU		312 // but also 354
+#define CODE_MENU		310 // RG35xxSP M/menu button (brightness modifier)
+#define CODE_MENU2		312 // base RG35xx Plus / others (also seen: 354)
 #define CODE_PLUS		115
 #define CODE_MINUS		114
 
@@ -115,6 +116,7 @@ int main (int argc, char *argv[]) {
 			// the menu/volume/brightness repeat keys below.
 			switch (ev.code) {
 				case CODE_MENU:
+				case CODE_MENU2:
 					menu_pressed = val;
 				break;
 				case CODE_PLUS:

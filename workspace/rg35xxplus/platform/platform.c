@@ -50,8 +50,8 @@ int on_hdmi = 0;
 #define RAW_X		307
 #define RAW_Y		306
 #define RAW_START	311
-#define RAW_SELECT	310
-#define RAW_MENU	312
+#define RAW_SELECT	312
+#define RAW_MENU	310 // RG35xxSP M/menu button reports 310 (base Plus used 312)
 #define RAW_L1		308
 #define RAW_L2		314
 #define RAW_L3		313
@@ -770,6 +770,18 @@ scaler_t PLAT_getScaler(GFX_Renderer* renderer) {
 	return scale1x1_c16;
 }
 
+// In-game brightness/volume overlay. The game path uploads the raw core buffer straight to a
+// texture and bypasses vid.screen, so the hardware group is drawn into a device-resolution ARGB
+// surface and composited over the game frame in PLAT_flip (below). Armed each frame by minarch.
+static SDL_Surface* hwg_black = NULL;   // pill rendered on a black backing
+static SDL_Surface* hwg_white = NULL;   // pill rendered on a white backing
+static SDL_Surface* hwg_argb  = NULL;   // per-pixel-alpha result recovered from the two
+static SDL_Texture* hwg_texture = NULL;
+static int hwg_show = 0;
+void PLAT_setHardwareGroup(int show_setting) {
+	hwg_show = show_setting;
+}
+
 void PLAT_blitRenderer(GFX_Renderer* renderer) {
 	vid.blit = renderer;
 	SDL_RenderClear(vid.renderer);
@@ -859,6 +871,66 @@ void PLAT_flip(SDL_Surface* IGNORED, int ignored) {
 		else SDL_RenderCopy(vid.renderer, vid.effect, &(SDL_Rect){0,0,dst_rect->w,dst_rect->h},dst_rect);
 	}
 	
+	// composite the in-game brightness/volume overlay over the game frame with rounded corners.
+	// GFX_blitPill fills the pill body with an RGB565-packed color that carries no alpha, so we
+	// can't render straight to an ARGB surface. Instead render the group twice (on black, on white)
+	// and recover per-pixel alpha from the difference: with straight-alpha compositing the result on
+	// black is src*a and on white is src*a+(1-a)*255, so (white-black)==(1-a)*255 per channel. Then
+	// unpremultiply (src = black_result / a) for the true colour. This gives clean anti-aliased
+	// rounded corners that show the game through them, with no colorkey fringe.
+	if (hwg_show && !on_hdmi) {
+		if (!hwg_argb) {
+			hwg_black = SDL_CreateRGBSurface(SDL_SWSURFACE, device_width, device_height, FIXED_DEPTH, RGBA_MASK_565);
+			hwg_white = SDL_CreateRGBSurface(SDL_SWSURFACE, device_width, device_height, FIXED_DEPTH, RGBA_MASK_565);
+			hwg_argb  = SDL_CreateRGBSurface(SDL_SWSURFACE, device_width, device_height, 32, 0x00FF0000,0x0000FF00,0x000000FF,0xFF000000);
+			hwg_texture = SDL_CreateTexture(vid.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, device_width, device_height);
+			if (hwg_texture) SDL_SetTextureBlendMode(hwg_texture, SDL_BLENDMODE_BLEND);
+		}
+		if (hwg_black && hwg_white && hwg_argb && hwg_texture) {
+			SDL_FillRect(hwg_black, NULL, 0x0000);
+			int ow = GFX_blitHardwareGroup(hwg_black, hwg_show);
+			SDL_FillRect(hwg_white, NULL, 0xFFFF);
+			GFX_blitHardwareGroup(hwg_white, hwg_show);
+
+			int pad = SCALE1(PADDING);
+			SDL_Rect region = { device_width - pad - ow, pad, ow, SCALE1(PILL_SIZE) };
+			if (region.x < 0) region.x = 0;
+			if (region.y < 0) region.y = 0;
+			if (region.x + region.w > device_width)  region.w = device_width  - region.x;
+			if (region.y + region.h > device_height) region.h = device_height - region.y;
+
+			int bpitch = hwg_black->pitch / 2;
+			int wpitch = hwg_white->pitch / 2;
+			int apitch = hwg_argb->pitch / 4;
+			uint16_t* bpx = (uint16_t*)hwg_black->pixels;
+			uint16_t* wpx = (uint16_t*)hwg_white->pixels;
+			uint32_t* apx = (uint32_t*)hwg_argb->pixels;
+			for (int yy = region.y; yy < region.y + region.h; yy++) {
+				for (int xx = region.x; xx < region.x + region.w; xx++) {
+					uint16_t b = bpx[yy*bpitch + xx];
+					uint16_t w = wpx[yy*wpitch + xx];
+					int br = (b>>11)&0x1F, bg = (b>>5)&0x3F, bb = b&0x1F;
+					int wr = (w>>11)&0x1F, wg = (w>>5)&0x3F, wb = w&0x1F;
+					br = (br<<3)|(br>>2); bg = (bg<<2)|(bg>>4); bb = (bb<<3)|(bb>>2);
+					wr = (wr<<3)|(wr>>2); wg = (wg<<2)|(wg>>4); wb = (wb<<3)|(wb>>2);
+					int a = 255 - (((wr-br)+(wg-bg)+(wb-bb))/3); // (1-alpha)*255 averaged over channels
+					if (a < 0) a = 0; else if (a > 255) a = 255;
+					uint32_t out = 0;
+					if (a > 0) {
+						int r = br*255/a, g = bg*255/a, bl = bb*255/a;
+						if (r>255)  r  = 255;
+						if (g>255)  g  = 255;
+						if (bl>255) bl = 255;
+						out = ((uint32_t)a<<24)|((uint32_t)r<<16)|((uint32_t)g<<8)|(uint32_t)bl;
+					}
+					apx[yy*apitch + xx] = out;
+				}
+			}
+			SDL_UpdateTexture(hwg_texture, &region, (uint8_t*)hwg_argb->pixels + region.y*hwg_argb->pitch + region.x*4, hwg_argb->pitch);
+			SDL_RenderCopy(vid.renderer, hwg_texture, &region, &region);
+		}
+	}
+
 	// uint32_t then = SDL_GetTicks();
 	SDL_RenderPresent(vid.renderer);
 	// LOG_info("SDL_RenderPresent blocked for %ims\n", SDL_GetTicks()-then);
@@ -959,7 +1031,24 @@ void PLAT_powerOff(void) {
 ///////////////////////////////
 
 void PLAT_setCPUSpeed(int speed) {
-	// TODO: why wasn't this ever implemented?
+	// H700 (sun50iw9): cpufreq-dt with a single policy driving all 4 cores,
+	// available frequencies 480000..1512000 kHz. Pin to a fixed frequency the
+	// way rg35xx's overclock.elf does (min==max), mapping MinUI's speed levels
+	// to the nearest real steps.
+	int freq;
+	switch (speed) {
+		case CPU_SPEED_MENU:        freq =  480000; break; // lowest, menu idle
+		case CPU_SPEED_POWERSAVE:   freq = 1104000; break;
+		case CPU_SPEED_NORMAL:      freq = 1320000; break;
+		case CPU_SPEED_PERFORMANCE: freq = 1512000; break; // max
+		default:                    freq = 1320000; break;
+	}
+	// lower the floor to the absolute min first so writing max can never
+	// transiently violate the min<=max constraint, then raise the floor to pin.
+	putInt("/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq", 480000);
+	putInt("/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq", freq);
+	putInt("/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq", freq);
+	putFile("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", "performance");
 }
 
 #define RUMBLE_PATH "/sys/class/power_supply/axp2202-battery/moto"

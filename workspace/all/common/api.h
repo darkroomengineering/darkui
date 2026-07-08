@@ -296,6 +296,7 @@ void PLAT_vsync(int remaining);
 scaler_t PLAT_getScaler(GFX_Renderer* renderer);
 void PLAT_blitRenderer(GFX_Renderer* renderer);
 void PLAT_flip(SDL_Surface* screen, int sync);
+void PLAT_setHardwareGroup(int show_setting); // arm the in-game brightness/volume overlay (0 = off) composited by PLAT_flip on GPU platforms
 int PLAT_supportsOverscan(void);
 int PLAT_supportsVsyncToggle(void);
 
