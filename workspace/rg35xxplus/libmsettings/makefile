@@ -16,10 +16,9 @@ CC = $(CROSS_COMPILE)gcc
 SYSROOT     := $(shell $(CC) --print-sysroot)
 
 INCLUDEDIR = $(SYSROOT)/usr/include
-CFLAGS = $(OPTM) -I$(INCLUDEDIR) -I$(CORE_DIR)
+CFLAGS = -Ofast -I$(INCLUDEDIR) -I$(CORE_DIR)
 LDFLAGS = -ldl -lrt -s
 
-OPTM=-Ofast
 
 build:
 	$(CC) -c -Werror -fpic "$(TARGET).c" $(CFLAGS) -Wl,--no-as-needed $(LDFLAGS)

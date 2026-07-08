@@ -25,8 +25,7 @@ SOURCE = $(TARGET).c menu.c ../common/scaler.c ../common/utils.c ../common/gfx.c
 
 CC = $(CROSS_COMPILE)gcc
 CFLAGS   = $(ARCH) -fomit-frame-pointer
-CFLAGS  += $(INCDIR) -DPLATFORM=\"$(PLATFORM)\" -DUSE_$(SDL) -Ofast -std=gnu99
-CFLAGS	+= -flto # NOTE: a trailing -Os used to override -Ofast (last -O wins); minui and all cores build -Ofast
+CFLAGS  += $(INCDIR) -DPLATFORM=\"$(PLATFORM)\" -DUSE_$(SDL) -Ofast -flto -std=gnu99 # single -O level on purpose: a later -O flag silently wins
 LDFLAGS	 = -ldl $(LIBS) -lmsettings -l$(SDL) -l$(SDL)_image -l$(SDL)_ttf -lpthread -lm -lz
 # CFLAGS  += -Wall -Wno-unused-variable -Wno-unused-function -Wno-format-overflow
 # CFLAGS  += -fsanitize=address -fno-common
