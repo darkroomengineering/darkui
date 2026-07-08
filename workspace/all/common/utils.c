@@ -14,6 +14,7 @@
 ///////////////////////////////////////
 
 int prefixMatch(char* pre, char* str) {
+	if (!pre || !str) return 0; // NULL isn't safe here
 	return (strncasecmp(pre,str,strlen(pre))==0);
 }
 int suffixMatch(char* suf, char* str) {
@@ -36,7 +37,7 @@ int hide(char* file_name) {
 
 void getDisplayName(const char* in_name, char* out_name) {
 	char* tmp;
-	char work_name[256];
+	char work_name[MAX_PATH];
 	strcpy(work_name, in_name);
 	strcpy(out_name, in_name);
 	

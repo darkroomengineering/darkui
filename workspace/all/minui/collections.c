@@ -16,7 +16,9 @@ Array* Array_new(void) {
 void Array_push(Array* self, void* item) {
 	if (self->count>=self->capacity) {
 		self->capacity *= 2;
-		self->items = realloc(self->items, sizeof(void*) * self->capacity);
+		void** new_items = realloc(self->items, sizeof(void*) * self->capacity);
+		if (!new_items) return;
+		self->items = new_items;
 	}
 	self->items[self->count++] = item;
 }
@@ -91,6 +93,7 @@ IntArray* IntArray_new(void) {
 	return self;
 }
 void IntArray_push(IntArray* self, int i) {
+	if (self->count >= INT_ARRAY_MAX) return;
 	self->items[self->count++] = i;
 }
 void IntArray_free(IntArray* self) {

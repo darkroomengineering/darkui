@@ -7,8 +7,10 @@
 
 int main(int argc , char* argv[]) {
 	
+	if (argc<2) return 0;
+
 	char msg[1024];
-	sprintf(msg, "%s", argv[1]);
+	snprintf(msg, sizeof(msg), "%s", argv[1]);
 	
 	PWR_setCPUSpeed(CPU_SPEED_MENU);
 	
