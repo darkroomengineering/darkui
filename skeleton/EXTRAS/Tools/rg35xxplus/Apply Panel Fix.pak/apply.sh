@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 killshow()
 {
@@ -199,6 +199,11 @@ fi
 
 killshow
 show.elf "$DIR/res/applying.png" 60 &
+
+# best-effort backup of the original on-device DTB region to durable SD
+# storage before overwriting it; same offset/size as the write below, and
+# a failed backup must never abort the patch
+dd if=$DEV_PATH bs=1 skip=$DTB_OFFSET count=$DTB_SIZE of="$DIR/PanelFix-backup.dtb" 2>/dev/null || true
 
 dd if=$DT_NAME-mod.dtb of=$DEV_PATH bs=1 seek=$DTB_OFFSET conv=notrunc 2>/dev/null # inject
 sync

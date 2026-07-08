@@ -105,8 +105,11 @@ if [ -f $UPDATE_PATH ]; then
 		rm -rf $BOOT_PATH
 	fi
 
-	/tmp/unzip -o $UPDATE_PATH -d $SDCARD_PATH >> $TF1_PATH/log.txt
-	rm -f $UPDATE_PATH
+	if /tmp/unzip -o $UPDATE_PATH -d $SDCARD_PATH >> $TF1_PATH/log.txt; then
+		rm -f $UPDATE_PATH
+	else
+		echo "unzip failed, keeping $UPDATE_PATH for retry" >> $TF1_PATH/log.txt
+	fi
 
 	# ls -la $SDCARD_PATH >> $TF1_PATH/log.txt
 	
