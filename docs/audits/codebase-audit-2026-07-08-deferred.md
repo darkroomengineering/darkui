@@ -1,16 +1,19 @@
 # Codebase Audit — Deferred Findings (2026-07-08)
 
 From the whole-repo adversarial audit of 2026-07-08. The CONFIRMED findings with safe fixes
-landed in commits `60ba2a5`, `b8100f3`, `6fe32e8`, `134fe5c`. The four below are also CONFIRMED
-but were deferred because the fix or its verification needs **on-device testing** on real
-RG35xx / RG35xxSP hardware. (GitHub Issues are disabled on this repo, so they're tracked here.)
+landed in commits `60ba2a5`, `b8100f3`, `6fe32e8`, `134fe5c`. The four below were CONFIRMED but
+deferred because the fix or its verification needs **on-device testing** on real RG35xx /
+RG35xxSP hardware. (GitHub Issues are disabled on this repo, so they're tracked here.)
 
-| ID | Severity | Area | Issue |
-|----|----------|------|-------|
-| D1 | Medium | rg35xxplus video | 'Prevent Tearing' (vsync) option is a no-op — `PLAT_flip` ignores the param |
-| D2 | Medium | rg35xxplus power | `PLAT_setCPUSpeed` is an empty stub — RG35xxSP never downclocks |
-| D3 | High (brick) | panel-fix tool | DTB write lacks post-write readback + uses `bs=1` |
-| D4 | Medium | minarch thread_video | condvar wait has no predicate (lost-wakeup stall) |
+**Update 2026-07-08:** D1, D3, D4 have since been implemented (compile-gated on both toolchains,
+still pending on-device validation). D2 remains open — it needs the SP's real cpufreq interface.
+
+| ID | Severity | Area | Issue | Status |
+|----|----------|------|-------|--------|
+| D1 | Medium | rg35xxplus video | 'Prevent Tearing' (vsync) option is a no-op — `PLAT_flip` ignores the param | Fixed `48446a8` (hidden) — verify on device |
+| D2 | Medium | rg35xxplus power | `PLAT_setCPUSpeed` is an empty stub — RG35xxSP never downclocks | **OPEN** — needs SP cpufreq paths |
+| D3 | High (brick) | panel-fix tool | DTB write lacks post-write readback + uses `bs=1` | Fixed `faa109b` (readback + restore.sh) — verify on device |
+| D4 | Medium | minarch thread_video | condvar wait has no predicate (lost-wakeup stall) | Fixed `1f4f28c` (predicate) — verify with thread_video on |
 
 ---
 
