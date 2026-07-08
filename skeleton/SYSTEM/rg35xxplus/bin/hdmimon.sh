@@ -7,20 +7,6 @@ HDMI_HEIGHT=720
 
 DEVICE_WIDTH=640
 DEVICE_HEIGHT=480
-case "$RGXX_MODEL" in
-	RGcubexx)
-		DEVICE_WIDTH=720
-		DEVICE_HEIGHT=720
-		;;
-	RG34xx*)
-		DEVICE_WIDTH=720
-		;;
-	RG28xx) # rotated
-		TMP_WIDTH=$DEVICE_WIDTH
-		DEVICE_WIDTH=$DEVICE_HEIGHT
-		DEVICE_HEIGHT=$TMP_WIDTH
-		;;
-esac
 
 DISP_PATH="/sys/kernel/debug/dispdbg"
 BLANK_PATH="/sys/class/graphics/fb0/blank"

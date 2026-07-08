@@ -27,15 +27,6 @@ export RGXX_MODEL=`strings /mnt/vendor/bin/dmenu.bin | grep ^RG`
 # export RGXX_TIMESTAMP=`strings /mnt/vendor/bin/dmenu.bin | grep ^202`
 # export RGXX_VERSION=`strings /mnt/vendor/bin/dmenu.bin | grep -P ^V[0-9]+`
 
-case "$RGXX_MODEL" in
-	RGcubexx)
-		export DEVICE="cube"
-		;;
-	RG34xx*)
-		export DEVICE="wide"
-		;;
-esac
-		
 #######################################
 
 keymon.elf & # > $LOGS_PATH/keymon.txt 2>&1 &

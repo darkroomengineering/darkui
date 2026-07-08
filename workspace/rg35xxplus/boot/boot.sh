@@ -65,15 +65,6 @@ if [ -f $UPDATE_PATH ]; then
 		;;
 	esac
 	
-	case "$RGXX_MODEL" in
-		RGcubexx)
-			SUFFIX="-s"
-			;;
-		RG34xx*)
-			SUFFIX="-w"
-			;;
-	esac
-	
 	if [ ! -d $SYSTEM_PATH ]; then
 		ACTION=installing
 		echo "install MinUI" >> $TF1_PATH/log.txt
