@@ -23,7 +23,7 @@
 
 ///////////////////////////////////////
 
-#define MENU_ITEM_COUNT 5
+#define MENU_ITEM_COUNT 6
 #define MENU_SLOT_COUNT 8
 
 enum {
@@ -31,6 +31,7 @@ enum {
 	ITEM_SAVE,
 	ITEM_LOAD,
 	ITEM_OPTS,
+	ITEM_FAV,
 	ITEM_QUIT,
 };
 
@@ -72,9 +73,57 @@ static struct {
 		[ITEM_SAVE] = "Save",
 		[ITEM_LOAD] = "Load",
 		[ITEM_OPTS] = "Options",
+		[ITEM_FAV]  = "Add to Favorites",
 		[ITEM_QUIT] = "Quit",
 	}
 };
+
+// Favorites: a collection at /Collections/Favorites.txt shown by the launcher
+// alongside the auto-generated collections. Add/remove the current game.
+#define FAVORITES_PATH SDCARD_PATH "/Collections/Favorites.txt"
+
+static int Menu_isFavorite(void) {
+	char* rel = game.path + strlen(SDCARD_PATH);
+	FILE* file = fopen(FAVORITES_PATH, "r");
+	if (!file) return 0;
+	char line[256];
+	int found = 0;
+	while (fgets(line, sizeof(line), file)!=NULL) {
+		normalizeNewline(line);
+		trimTrailingNewlines(line);
+		if (exactMatch(line, rel)) { found = 1; break; }
+	}
+	fclose(file);
+	return found;
+}
+
+static void Menu_toggleFavorite(void) {
+	char* rel = game.path + strlen(SDCARD_PATH);
+	if (Menu_isFavorite()) {
+		// rewrite the file without this entry (temp + rename = atomic)
+		FILE* in = fopen(FAVORITES_PATH, "r");
+		if (!in) return;
+		char tmp_path[MAX_PATH];
+		snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", FAVORITES_PATH);
+		FILE* out = fopen(tmp_path, "w");
+		if (!out) { fclose(in); return; }
+		char line[256];
+		while (fgets(line, sizeof(line), in)!=NULL) {
+			normalizeNewline(line);
+			trimTrailingNewlines(line);
+			if (strlen(line)==0 || exactMatch(line, rel)) continue;
+			fprintf(out, "%s\n", line);
+		}
+		fclose(in); fclose(out);
+		rename(tmp_path, FAVORITES_PATH);
+	}
+	else {
+		mkdir(SDCARD_PATH "/Collections", 0755);
+		FILE* out = fopen(FAVORITES_PATH, "a");
+		if (out) { fprintf(out, "%s\n", rel); fclose(out); }
+	}
+	menu.items[ITEM_FAV] = Menu_isFavorite() ? "Remove from Favorites" : "Add to Favorites";
+}
 
 void Menu_init(void) {
 	menu.overlay = SDL_CreateRGBSurface(SDL_SWSURFACE,DEVICE_WIDTH,DEVICE_HEIGHT,FIXED_DEPTH,RGBA_MASK_AUTO);
@@ -89,6 +138,8 @@ void Menu_init(void) {
 	sprintf(menu.slot_path, "%s/%s.txt", menu.minui_dir, game.name);
 
 	if (simple_mode) menu.items[ITEM_OPTS] = "Reset";
+
+	menu.items[ITEM_FAV] = Menu_isFavorite() ? "Remove from Favorites" : "Add to Favorites";
 
 	if (game.m3u_path[0]) {
 		char* tmp;
@@ -1302,6 +1353,10 @@ void Menu_loop(void) {
 						dirty = 1;
 					}
 				}
+				break;
+				case ITEM_FAV:
+					Menu_toggleFavorite();
+					dirty = 1; // stay in the menu; the label flips to confirm
 				break;
 				case ITEM_QUIT:
 					status = STATUS_QUIT;
