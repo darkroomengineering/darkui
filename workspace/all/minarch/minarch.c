@@ -1314,14 +1314,12 @@ static void Config_write(int override) {
 static void Config_restore(void) {
 	char path[MAX_PATH];
 	if (config.loaded==CONFIG_GAME) {
-		if (config.device_tag) sprintf(path, "%s/%s-%s.cfg", core.config_dir, game.name, config.device_tag);
-		else sprintf(path, "%s/%s.cfg", core.config_dir, game.name);
+		Config_getPath(path, CONFIG_WRITE_GAME);
 		unlink(path);
 		LOG_info("deleted game config: %s\n", path);
 	}
 	else if (config.loaded==CONFIG_CONSOLE) {
-		if (config.device_tag) sprintf(path, "%s/minarch-%s.cfg", core.config_dir, config.device_tag);
-		else sprintf(path, "%s/minarch.cfg", core.config_dir);
+		Config_getPath(path, CONFIG_WRITE_ALL);
 		unlink(path);
 		LOG_info("deleted console config: %s\n", path);
 	}
@@ -3127,29 +3125,29 @@ static MenuList OptionFrontend_menu = {
 	.on_change = OptionFrontend_optionChanged,
 	.items = NULL,
 };
-static int OptionFrontend_openMenu(MenuList* list, int i) {
-	if (OptionFrontend_menu.items==NULL) {
+static void OptionList_buildMenu(OptionList* list, MenuList* menu) {
+	if (menu->items==NULL) {
 		// TODO: where do I free this? I guess I don't :sweat_smile:
-		if (!config.frontend.enabled_count) {
+		if (!list->enabled_count) {
 			int enabled_count = 0;
-			for (int i=0; i<config.frontend.count; i++) {
-				if (!config.frontend.options[i].lock) enabled_count += 1;
+			for (int i=0; i<list->count; i++) {
+				if (!list->options[i].lock) enabled_count += 1;
 			}
-			config.frontend.enabled_count = enabled_count;
-			config.frontend.enabled_options = calloc(enabled_count+1, sizeof(Option*));
+			list->enabled_count = enabled_count;
+			list->enabled_options = calloc(enabled_count+1, sizeof(Option*));
 			int j = 0;
-			for (int i=0; i<config.frontend.count; i++) {
-				Option* item = &config.frontend.options[i];
+			for (int i=0; i<list->count; i++) {
+				Option* item = &list->options[i];
 				if (item->lock) continue;
-				config.frontend.enabled_options[j] = item;
+				list->enabled_options[j] = item;
 				j += 1;
 			}
 		}
 
-		OptionFrontend_menu.items = calloc(config.frontend.enabled_count+1, sizeof(MenuItem));
-		for (int j=0; j<config.frontend.enabled_count; j++) {
-			Option* option = config.frontend.enabled_options[j];
-			MenuItem* item = &OptionFrontend_menu.items[j];
+		menu->items = calloc(list->enabled_count+1, sizeof(MenuItem));
+		for (int j=0; j<list->enabled_count; j++) {
+			Option* option = list->enabled_options[j];
+			MenuItem* item = &menu->items[j];
 			item->key = option->key;
 			item->name = option->name;
 			item->desc = option->desc;
@@ -3159,13 +3157,15 @@ static int OptionFrontend_openMenu(MenuList* list, int i) {
 	}
 	else {
 		// update values
-		for (int j=0; j<config.frontend.enabled_count; j++) {
-			Option* option = config.frontend.enabled_options[j];
-			MenuItem* item = &OptionFrontend_menu.items[j];
+		for (int j=0; j<list->enabled_count; j++) {
+			Option* option = list->enabled_options[j];
+			MenuItem* item = &menu->items[j];
 			item->value = option->value;
 		}
 	}
-	
+}
+static int OptionFrontend_openMenu(MenuList* list, int i) {
+	OptionList_buildMenu(&config.frontend, &OptionFrontend_menu);
 	Menu_options(&OptionFrontend_menu);
 	return MENU_CALLBACK_NOP;
 }
@@ -3193,44 +3193,8 @@ static MenuList OptionEmulator_menu = {
 	.items = NULL,
 };
 static int OptionEmulator_openMenu(MenuList* list, int i) {
-	if (OptionEmulator_menu.items==NULL) {
-		// TODO: where do I free this? I guess I don't :sweat_smile:
-		if (!config.core.enabled_count) {
-			int enabled_count = 0;
-			for (int i=0; i<config.core.count; i++) {
-				if (!config.core.options[i].lock) enabled_count += 1;
-			}
-			config.core.enabled_count = enabled_count;
-			config.core.enabled_options = calloc(enabled_count+1, sizeof(Option*));
-			int j = 0;
-			for (int i=0; i<config.core.count; i++) {
-				Option* item = &config.core.options[i];
-				if (item->lock) continue;
-				config.core.enabled_options[j] = item;
-				j += 1;
-			}
-		}
-		
-		OptionEmulator_menu.items = calloc(config.core.enabled_count+1, sizeof(MenuItem));
-		for (int j=0; j<config.core.enabled_count; j++) {
-			Option* option = config.core.enabled_options[j];
-			MenuItem* item = &OptionEmulator_menu.items[j];
-			item->key = option->key;
-			item->name = option->name;
-			item->desc = option->desc;
-			item->value = option->value;
-			item->values = option->labels;
-		}
-	}
-	else {
-		// update values
-		for (int j=0; j<config.core.enabled_count; j++) {
-			Option* option = config.core.enabled_options[j];
-			MenuItem* item = &OptionEmulator_menu.items[j];
-			item->value = option->value;
-		}
-	}
-	
+	OptionList_buildMenu(&config.core, &OptionEmulator_menu);
+
 	if (OptionEmulator_menu.items[0].name) { // TODO: why doesn't this just use (enabled_)count?
 		Menu_options(&OptionEmulator_menu);
 	}
@@ -3241,20 +3205,12 @@ static int OptionEmulator_openMenu(MenuList* list, int i) {
 	return MENU_CALLBACK_NOP;
 }
 
-int OptionControls_bind(MenuList* list, int i) {
-	MenuItem* item = &list->items[i];
-	if (item->values!=button_labels) {
-		// LOG_info("changed gamepad_type\n");
-		return MENU_CALLBACK_NOP;
-	}
-	
-	ButtonMapping* button = &config.controls[item->id];
-	
+static int Option_bindButton(ButtonMapping* button, MenuItem* item) {
 	int bound = 0;
 	while (!bound) {
 		GFX_startFrame();
 		PAD_poll();
-		
+
 		// NOTE: off by one because of the initial NONE value
 		for (int id=0; id<=LOCAL_BUTTON_COUNT; id++) {
 			if (PAD_justPressed(1 << (id-1))) {
@@ -3276,13 +3232,23 @@ int OptionControls_bind(MenuList* list, int i) {
 	}
 	return MENU_CALLBACK_NEXT_ITEM;
 }
+static void Option_unbindButton(ButtonMapping* button) {
+	button->local = -1;
+	button->mod = 0;
+}
+int OptionControls_bind(MenuList* list, int i) {
+	MenuItem* item = &list->items[i];
+	if (item->values!=button_labels) {
+		// LOG_info("changed gamepad_type\n");
+		return MENU_CALLBACK_NOP;
+	}
+	return Option_bindButton(&config.controls[item->id], item);
+}
 static int OptionControls_unbind(MenuList* list, int i) {
 	MenuItem* item = &list->items[i];
 	if (item->values!=button_labels) return MENU_CALLBACK_NOP;
-	
-	ButtonMapping* button = &config.controls[item->id];
-	button->local = -1;
-	button->mod = 0;
+
+	Option_unbindButton(&config.controls[item->id]);
 	return MENU_CALLBACK_NOP;
 }
 static int OptionControls_optionChanged(MenuList* list, int i) {
@@ -3362,38 +3328,11 @@ static int OptionControls_openMenu(MenuList* list, int i) {
 
 static int OptionShortcuts_bind(MenuList* list, int i) {
 	MenuItem* item = &list->items[i];
-	ButtonMapping* button = &config.shortcuts[item->id];
-	int bound = 0;
-	while (!bound) {
-		GFX_startFrame();
-		PAD_poll();
-		
-		// NOTE: off by one because of the initial NONE value
-		for (int id=0; id<=LOCAL_BUTTON_COUNT; id++) {
-			if (PAD_justPressed(1 << (id-1))) {
-				item->value = id;
-				button->local = id - 1;
-				if (PAD_isPressed(BTN_MENU)) {
-					item->value += LOCAL_BUTTON_COUNT;
-					button->mod = 1;
-				}
-				else {
-					button->mod = 0;
-				}
-				bound = 1;
-				break;
-			}
-		}
-		GFX_sync();
-		hdmimon();
-	}
-	return MENU_CALLBACK_NEXT_ITEM;
+	return Option_bindButton(&config.shortcuts[item->id], item);
 }
 static int OptionShortcuts_unbind(MenuList* list, int i) {
 	MenuItem* item = &list->items[i];
-	ButtonMapping* button = &config.shortcuts[item->id];
-	button->local = -1;
-	button->mod = 0;
+	Option_unbindButton(&config.shortcuts[item->id]);
 	return MENU_CALLBACK_NOP;
 }
 static MenuList OptionShortcuts_menu = {
@@ -3508,6 +3447,30 @@ static void OptionSaveChanges_updateDesc(void) {
 
 #define OPTION_PADDING 8
 
+static void Menu_selectNext(int* selected, int* start, int* end, int count, int visible_rows) {
+	*selected += 1;
+	if (*selected>=count) {
+		*selected = 0;
+		*start = 0;
+		*end = visible_rows;
+	}
+	else if (*selected>=*end) {
+		*start += 1;
+		*end += 1;
+	}
+}
+static void Menu_selectPrev(int* selected, int* start, int* end, int count, int max_visible_options) {
+	*selected -= 1;
+	if (*selected<0) {
+		*selected = count - 1;
+		*start = MAX(0,count - max_visible_options);
+		*end = count;
+	}
+	else if (*selected<*start) {
+		*start -= 1;
+		*end -= 1;
+	}
+}
 static int Menu_options(MenuList* list) {
 	MenuItem* items = list->items;
 	int type = list->type;
@@ -3553,29 +3516,11 @@ static int Menu_options(MenuList* list) {
 		PAD_poll();
 		
 		if (PAD_justRepeated(BTN_UP)) {
-			selected -= 1;
-			if (selected<0) {
-				selected = count - 1;
-				start = MAX(0,count - max_visible_options);
-				end = count;
-			}
-			else if (selected<start) {
-				start -= 1;
-				end -= 1;
-			}
+			Menu_selectPrev(&selected, &start, &end, count, max_visible_options);
 			dirty = 1;
 		}
 		else if (PAD_justRepeated(BTN_DOWN)) {
-			selected += 1;
-			if (selected>=count) {
-				selected = 0;
-				start = 0;
-				end = visible_rows;
-			}
-			else if (selected>=end) {
-				start += 1;
-				end += 1;
-			}
+			Menu_selectNext(&selected, &start, &end, count, visible_rows);
 			dirty = 1;
 		}
 		else {
@@ -3624,17 +3569,7 @@ static int Menu_options(MenuList* list) {
 			if (result==MENU_CALLBACK_EXIT) show_options = 0;
 			else {
 				if (result==MENU_CALLBACK_NEXT_ITEM) {
-					// copied from PAD_justRepeated(BTN_DOWN) above
-					selected += 1;
-					if (selected>=count) {
-						selected = 0;
-						start = 0;
-						end = visible_rows;
-					}
-					else if (selected>=end) {
-						start += 1;
-						end += 1;
-					}
+					Menu_selectNext(&selected, &start, &end, count, visible_rows);
 				}
 				dirty = 1;
 			}
@@ -3647,21 +3582,11 @@ static int Menu_options(MenuList* list) {
 				if (item->on_change) item->on_change(list, selected);
 				else if (list->on_change) list->on_change(list, selected);
 				
-				// copied from PAD_justRepeated(BTN_DOWN) above
-				selected += 1;
-				if (selected>=count) {
-					selected = 0;
-					start = 0;
-					end = visible_rows;
-				}
-				else if (selected>=end) {
-					start += 1;
-					end += 1;
-				}
+				Menu_selectNext(&selected, &start, &end, count, visible_rows);
 				dirty = 1;
 			}
 		}
-		
+
 		if (!defer_menu) PWR_update(&dirty, &show_settings, Menu_beforeSleep, Menu_afterSleep);
 		
 		if (defer_menu && PAD_justReleased(BTN_MENU)) defer_menu = false;
