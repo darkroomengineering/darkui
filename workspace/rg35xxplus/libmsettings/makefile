@@ -16,7 +16,7 @@ CC = $(CROSS_COMPILE)gcc
 SYSROOT     := $(shell $(CC) --print-sysroot)
 
 INCLUDEDIR = $(SYSROOT)/usr/include
-CFLAGS = -I$(INCLUDEDIR) -I$(CORE_DIR)
+CFLAGS = $(OPTM) -I$(INCLUDEDIR) -I$(CORE_DIR)
 LDFLAGS = -ldl -lrt -s
 
 OPTM=-Ofast

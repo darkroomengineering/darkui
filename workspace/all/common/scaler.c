@@ -3,6 +3,12 @@
 #include <string.h>
 
 #include "platform.h" // for HAS_NEON
+#include "utils.h" // for LOG_warn
+
+// one-time diagnostic: an unaligned core framebuffer/pitch silently demotes a
+// NEON scaler to its C fallback; surface it so device testing can catch it
+#define NEON_FALLBACK_WARN() do { static int warned; if (!warned) { warned = 1; \
+	LOG_warn("scaler: %s fell back to the C scaler (unaligned buffer or pitch)\n", __func__); } } while (0)
 
 //
 //	arm NEON / C integer scalers for ARMv7 devices
@@ -238,7 +244,7 @@ void scale1x1_n16(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	if (!sw||!sh) return;
 	uint32_t swl = sw*sizeof(uint16_t);
 	if (!sp) { sp = swl; } if (!dp) { dp = swl*1; }
-	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { scale1x1_c16(src,dst,sw,sh,sp,dw,dh,dp); return; }
+	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { NEON_FALLBACK_WARN(); scale1x1_c16(src,dst,sw,sh,sp,dw,dh,dp); return; }
 	if ((swl == sp)&&(sp == dp)) memcpy_neon(dst, src, sp*sh);
 	else {
 		if (swl>dp) swl = dp;
@@ -250,7 +256,7 @@ void scale2x2_n16(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	if (!sw||!sh) return;
 	uint32_t swl = sw * sizeof(uint16_t);
 	if (!sp) { sp = swl; } if (!dp) { dp = swl*2; }
-	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { scale2x2_c16(src,dst,sw,sh,sp,dw,dh,dp); return; }
+	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { NEON_FALLBACK_WARN(); scale2x2_c16(src,dst,sw,sh,sp,dw,dh,dp); return; }
 	uint32_t swl64 = swl & ~63;
 	uint32_t sadd = sp - swl;
 	uint32_t dadd = dp*2 - swl*2;
@@ -367,7 +373,7 @@ void scale3x3_n16(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	if (!sw||!sh) return;
 	uint32_t swl = sw * sizeof(uint16_t);
 	if (!sp) { sp = swl; } if (!dp) { dp = swl*3; }
-	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { scale3x3_c16(src,dst,sw,sh,sp,dw,dh,dp); return; }
+	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { NEON_FALLBACK_WARN(); scale3x3_c16(src,dst,sw,sh,sp,dw,dh,dp); return; }
 	uint32_t swl32 = swl & ~31;
 	uint32_t sadd = sp - swl;
 	uint32_t dadd = dp*3 - swl*3;
@@ -439,7 +445,7 @@ void scale4x4_n16(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	if (!sw||!sh) return;
 	uint32_t swl = sw * sizeof(uint16_t);
 	if (!sp) { sp = swl; } if (!dp) { dp = swl*4; }
-	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { scale4x4_c16(src,dst,sw,sh,sp,dw,dh,dp); return; }
+	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { NEON_FALLBACK_WARN(); scale4x4_c16(src,dst,sw,sh,sp,dw,dh,dp); return; }
 	uint32_t swl32 = swl & ~31;
 	uint32_t sadd = sp - swl;
 	uint32_t dadd = dp*4 - swl*4;
@@ -541,7 +547,7 @@ static void scale5x_n16(void* __restrict src, void* __restrict dst, uint32_t sw,
 	uint32_t swl = sw * sizeof(uint16_t);
 	uint32_t dwl = swl*5;
 	if (!sp) { sp = swl; } if (!dp) { dp = dwl; }
-	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { scale5x_c16(src,dst,sw,sh,sp,dw,dh,dp,ymul); return; }
+	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { NEON_FALLBACK_WARN(); scale5x_c16(src,dst,sw,sh,sp,dw,dh,dp,ymul); return; }
 	void* __restrict dstsrc;
 	for (; sh>0; sh--, src=(uint8_t*)src+sp) {
 		scale5x_n16line(src, dst, swl);
@@ -597,7 +603,7 @@ static void scale6x_n16(void* __restrict src, void* __restrict dst, uint32_t sw,
 	uint32_t swl = sw * sizeof(uint16_t);
 	uint32_t dwl = swl*6;
 	if (!sp) { sp = swl; } if (!dp) { dp = dwl; }
-	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { scale6x_c16(src,dst,sw,sh,sp,dw,dh,dp,ymul); return; }
+	if ( ((uintptr_t)src&3)||((uintptr_t)dst&3)||(sp&3)||(dp&3) ) { NEON_FALLBACK_WARN(); scale6x_c16(src,dst,sw,sh,sp,dw,dh,dp,ymul); return; }
 	void* __restrict dstsrc;
 	for (; sh>0; sh--, src=(uint8_t*)src+sp) {
 		scale6x_n16line(src, dst, swl);
