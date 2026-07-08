@@ -1037,7 +1037,7 @@ void PLAT_setCPUSpeed(int speed) {
 	// to the nearest real steps.
 	int freq;
 	switch (speed) {
-		case CPU_SPEED_MENU:        freq =  480000; break; // lowest, menu idle
+		case CPU_SPEED_MENU:        freq =  720000; break; // snappy launcher, still power-conscious
 		case CPU_SPEED_POWERSAVE:   freq = 1104000; break;
 		case CPU_SPEED_NORMAL:      freq = 1320000; break;
 		case CPU_SPEED_PERFORMANCE: freq = 1512000; break; // max
