@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "msettings.h"
+#include "msettings_core.h"
 
 ///////////////////////////////////////
 
@@ -35,9 +36,6 @@ static Settings DefaultSettings = {
 };
 static Settings* settings;
 
-#define SHM_KEY "/SharedSettings"
-static char SettingsPath[256];
-static int shm_fd = -1;
 static int is_host = 0;
 static int shm_size = sizeof(Settings);
 
@@ -54,38 +52,16 @@ int getInt(char* path) {
 	return i;
 }
 
-void InitSettings(void) {	
-	sprintf(SettingsPath, "%s/msettings.bin", getenv("USERDATA_PATH"));
-	
-	shm_fd = shm_open(SHM_KEY, O_RDWR | O_CREAT | O_EXCL, 0644); // see if it exists
-	if (shm_fd==-1 && errno==EEXIST) { // already exists
-		puts("Settings client");
-		shm_fd = shm_open(SHM_KEY, O_RDWR, 0644);
-		settings = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-	}
-	else { // host
-		puts("Settings host"); // should always be keymon
-		is_host = 1;
-		// we created it so set initial size and populate
-		ftruncate(shm_fd, shm_size);
-		settings = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-		
-		int fd = open(SettingsPath, O_RDONLY);
-		if (fd>=0) {
-			read(fd, settings, shm_size);
-			// TODO: use settings->version for future proofing?
-			close(fd);
-		}
-		else {
-			// load defaults
-			memcpy(settings, &DefaultSettings, shm_size);
-		}
-		
-		// these shouldn't be persisted
-		// settings->jack = 0;
-		// settings->hdmi = 0;
-	}
-	
+void InitSettings(void) {
+	// shm-open/mmap/read-defaults dance lives in msettings_core.c, shared
+	// across platforms -- it only moves shm_size bytes around and never
+	// looks at the Settings layout, so it's agnostic to this platform's
+	// extra hdmi field.
+	settings = InitSettingsCore(&DefaultSettings, shm_size, &is_host);
+	// these shouldn't be persisted
+	// settings->jack = 0;
+	// settings->hdmi = 0;
+
 	int jack = getInt(JACK_STATE_PATH);
 	int hdmi = getInt(HDMI_STATE_PATH);
 	printf("brightness: %i (hdmi: %i)\nspeaker: %i (jack: %i)\n", settings->brightness, hdmi, settings->speaker, jack); fflush(stdout);
@@ -98,16 +74,10 @@ void InitSettings(void) {
 	// system("echo $(< " BRIGHTNESS_PATH ")");
 }
 void QuitSettings(void) {
-	munmap(settings, shm_size);
-	if (is_host) shm_unlink(SHM_KEY);
+	QuitSettingsCore(settings, shm_size, is_host);
 }
 static inline void SaveSettings(void) {
-	int fd = open(SettingsPath, O_CREAT|O_WRONLY, 0644);
-	if (fd>=0) {
-		write(fd, settings, shm_size);
-		close(fd);
-		sync();
-	}
+	SaveSettingsCore(settings, shm_size);
 }
 
 int GetBrightness(void) { // 0-10
