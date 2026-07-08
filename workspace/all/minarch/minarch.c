@@ -35,6 +35,7 @@ static pthread_t		core_pt;
 pthread_mutex_t	core_mx;
 static pthread_cond_t	core_rq; // not sure this is required
 static SDL_Surface*	backbuffer = NULL;
+static volatile int	frame_ready = 0; // guards core_rq against lost wakeups
 static void* coreThread(void *arg);
 
 // default frontend options
@@ -2693,6 +2694,7 @@ void video_refresh_callback(const void *data, unsigned width, unsigned height, s
 
 		memcpy(backbuffer->pixels, data, backbuffer->h*backbuffer->pitch);
 
+		frame_ready = 1;
 		pthread_cond_signal(&core_rq);
 		pthread_mutex_unlock(&core_mx);
 	}
@@ -3025,7 +3027,8 @@ int main(int argc , char* argv[]) {
 
 		if (thread_video && !quit) {
 			pthread_mutex_lock(&core_mx);
-			pthread_cond_wait(&core_rq,&core_mx);
+			while (!frame_ready && !quit) pthread_cond_wait(&core_rq,&core_mx);
+			frame_ready = 0;
 
 			if (backbuffer) {
 				video_refresh_callback_main(backbuffer->pixels,backbuffer->w,backbuffer->h,backbuffer->pitch);
