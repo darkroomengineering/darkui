@@ -9,16 +9,9 @@
 
 ///////////////////////////////
 
-// Model detection is lazy + cached (see PLAT_isCubexx/PLAT_isRG34xx in
-// platform.c) so any macro below is safe to expand before PLAT_initVideo
-// has run -- there is no uninitialized-global window.
-int PLAT_isCubexx(void);
-int PLAT_isRG34xx(void);
-
 // on_hdmi is genuinely dynamic (HDMI hotplug), re-read every frame in
-// PLAT_flip() via GetHDMI(), so it cannot be lazily cached like the model
-// flags above. It defaults to 0 (no HDMI) until PLAT_initVideo runs, which
-// is the correct assumption for any code that could execute earlier.
+// PLAT_flip() via GetHDMI(). It defaults to 0 (no HDMI) until PLAT_initVideo
+// runs, which is the correct assumption for any code that could execute earlier.
 extern int on_hdmi;
 
 ///////////////////////////////
@@ -116,8 +109,8 @@ extern int on_hdmi;
 ///////////////////////////////
 
 #define FIXED_SCALE 	2
-#define FIXED_WIDTH		(PLAT_isCubexx()?720:(PLAT_isRG34xx()?720:640))
-#define FIXED_HEIGHT	(PLAT_isCubexx()?720:480)
+#define FIXED_WIDTH		640
+#define FIXED_HEIGHT	480
 #define FIXED_BPP		2
 #define FIXED_DEPTH		(FIXED_BPP * 8)
 #define FIXED_PITCH		(FIXED_WIDTH * FIXED_BPP)
@@ -136,8 +129,8 @@ extern int on_hdmi;
 
 ///////////////////////////////
 
-#define MAIN_ROW_COUNT (PLAT_isCubexx()||on_hdmi?8:6)
-#define PADDING (PLAT_isCubexx()||on_hdmi?40:10)
+#define MAIN_ROW_COUNT (on_hdmi?8:6)
+#define PADDING (on_hdmi?40:10)
 
 ///////////////////////////////
 
