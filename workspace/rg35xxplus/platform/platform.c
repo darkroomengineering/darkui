@@ -19,8 +19,24 @@
 
 #include "scaler.h"
 
-int is_cubexx = 0;
-int is_rg34xx = 0;
+// Model detection is derived from an env var that is fixed for the life of
+// the process, so it's safe (and correct) to detect it lazily on first use
+// instead of requiring PLAT_initVideo to run first. Detection happens once
+// and is cached; PLAT_isCubexx()/PLAT_isRG34xx() are the single source of
+// truth consumed by the FIXED_*/MAIN_ROW_COUNT/PADDING macros in platform.h.
+static int _model_detected = 0;
+static int _is_cubexx = 0;
+static int _is_rg34xx = 0;
+static void detectModel(void) {
+	if (_model_detected) return;
+	char* model = getenv("RGXX_MODEL"); // TODO: use device?
+	_is_cubexx = exactMatch("RGcubexx", model);
+	_is_rg34xx = prefixMatch("RG34xx", model);
+	_model_detected = 1;
+}
+int PLAT_isCubexx(void) { detectModel(); return _is_cubexx; }
+int PLAT_isRG34xx(void) { detectModel(); return _is_rg34xx; }
+
 int on_hdmi = 0;
 
 ///////////////////////////////
@@ -407,10 +423,8 @@ static int rotate = 0;
 SDL_Surface* PLAT_initVideo(void) {
 	// LOG_info("PLAT_initVideo\n");
 	
-	char* model = getenv("RGXX_MODEL"); // TODO: use device?
-	is_cubexx = exactMatch("RGcubexx", model);
-	is_rg34xx = prefixMatch("RG34xx", model);
-	
+	detectModel(); // no-op if already triggered by an earlier FIXED_*/MAIN_ROW_COUNT/PADDING macro expansion
+
 	// SDL_version compiled;
 	// SDL_version linked;
 	// SDL_VERSION(&compiled);
@@ -851,7 +865,7 @@ void PLAT_flip(SDL_Surface* IGNORED, int ignored) {
 	vid.blit = NULL;
 }
 
-int PLAT_supportsOverscan(void) { return is_cubexx; }
+int PLAT_supportsOverscan(void) { return PLAT_isCubexx(); }
 
 ///////////////////////////////
 
