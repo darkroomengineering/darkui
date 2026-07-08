@@ -2977,6 +2977,9 @@ int main(int argc , char* argv[]) {
 	Config_init();
 	Config_readOptions(); // cores with boot logo option (eg. gb) need to load options early
 	setOverclock(overclock);
+	// hide "Prevent Tearing" on platforms that can't honor it (set after config
+	// load so a stale saved value can't un-hide it) rather than showing a dead toggle
+	if (!PLAT_supportsVsyncToggle()) config.frontend.options[FE_OPT_TEARING].lock = 1;
 	GFX_setVsync(prevent_tearing);
 
 	Core_init();

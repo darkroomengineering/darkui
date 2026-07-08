@@ -867,6 +867,10 @@ void PLAT_flip(SDL_Surface* IGNORED, int ignored) {
 
 int PLAT_supportsOverscan(void) { return PLAT_isCubexx(); }
 
+// SDL2 here is < 2.0.18 (no SDL_RenderSetVSync) and the renderer is created with
+// SDL_RENDERER_PRESENTVSYNC, so vsync can't be toggled at runtime — hide the option
+int PLAT_supportsVsyncToggle(void) { return 0; }
+
 ///////////////////////////////
 
 // TODO: 

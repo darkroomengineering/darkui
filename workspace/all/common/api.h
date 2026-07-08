@@ -297,6 +297,7 @@ scaler_t PLAT_getScaler(GFX_Renderer* renderer);
 void PLAT_blitRenderer(GFX_Renderer* renderer);
 void PLAT_flip(SDL_Surface* screen, int sync);
 int PLAT_supportsOverscan(void);
+int PLAT_supportsVsyncToggle(void);
 
 SDL_Surface* PLAT_initOverlay(void);
 void PLAT_quitOverlay(void);
