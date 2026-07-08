@@ -42,7 +42,7 @@ static int shm_size = sizeof(Settings);
 #define JACK_STATE_PATH "/sys/module/snd_soc_sunxi_component_jack/parameters/jack_state" // TODO: doesn't change, always 0
 #define HDMI_STATE_PATH "/sys/class/switch/hdmi/cable.0/state"
 
-int getInt(char* path) {
+static int getInt(char* path) {
 	int i = 0;
 	FILE *file = fopen(path, "r");
 	if (file!=NULL) {

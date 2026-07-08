@@ -296,8 +296,12 @@ int PAD_tappedMenu(uint32_t now) {
 static struct VIB_Context {
 	int initialized;
 	pthread_t pt;
-	int queued_strength;
-	int strength;
+	// queued_strength: written by main thread (VIB_setStrength), read by
+	// VIB_thread; strength: written by VIB_thread, read by main thread
+	// (VIB_getStrength) -- volatile is the minimal safe mitigation for
+	// both directions without adding locks
+	volatile int queued_strength;
+	volatile int strength;
 } vib = {0};
 static void* VIB_thread(void *arg) {
 #define DEFER_FRAMES 3

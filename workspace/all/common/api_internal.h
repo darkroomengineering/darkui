@@ -41,9 +41,13 @@ struct PWR_Context {
 	int requested_wake;
 
 	pthread_t battery_pt;
-	int is_charging;
-	int charge;
-	int should_warn;
+	// written by the battery-monitor thread (pwr.c PWR_monitorBattery),
+	// read by the main thread; should_warn is the reverse (written by the
+	// main thread, read by the battery thread) -- volatile is the minimal
+	// safe mitigation for both directions without adding locks
+	volatile int is_charging;
+	volatile int charge;
+	volatile int should_warn;
 
 	SDL_Surface* overlay;
 };

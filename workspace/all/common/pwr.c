@@ -64,11 +64,12 @@ void PWR_init(void) {
 void PWR_quit(void) {
 	if (!pwr.initialized) return;
 
-	PLAT_quitOverlay();
-
-	// cancel battery thread
+	// cancel/join the battery thread first -- otherwise it can wake and
+	// call PLAT_enableOverlay() during (or after) overlay teardown
 	pthread_cancel(pwr.battery_pt);
 	pthread_join(pwr.battery_pt, NULL);
+
+	PLAT_quitOverlay();
 }
 void PWR_warn(int enable) {
 	pwr.should_warn = enable;
