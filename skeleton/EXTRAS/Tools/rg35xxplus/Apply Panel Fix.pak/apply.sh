@@ -205,8 +205,46 @@ show.elf "$DIR/res/applying.png" 60 &
 # a failed backup must never abort the patch
 dd if=$DEV_PATH bs=1 skip=$DTB_OFFSET count=$DTB_SIZE of="$DIR/PanelFix-backup.dtb" 2>/dev/null || true
 
+# record the offset/size alongside the backup so restore.sh doesn't need to
+# re-derive them (avoids duplicating the device-detection logic above);
+# a failed write here must never abort the patch
+{ echo "DTB_OFFSET=$DTB_OFFSET"; echo "DTB_SIZE=$DTB_SIZE"; } > "$DIR/PanelFix-backup.meta" 2>/dev/null || true
+
 dd if=$DT_NAME-mod.dtb of=$DEV_PATH bs=1 seek=$DTB_OFFSET conv=notrunc 2>/dev/null # inject
 sync
+
+# post-write readback verification: confirm the bytes we intended to write
+# actually landed on the device before declaring success. reuses the same
+# additive-checksum mechanism as the pre-write validation above for
+# consistency. B_SUM (checksum of $DT_NAME-mod.dtb) is still valid here
+# since that file has not been touched since it was computed.
+dd if=$DEV_PATH bs=1 skip=$DTB_OFFSET count=$DTB_SIZE of="$DT_NAME-readback.dtb" 2>/dev/null
+
+declare -a BYTES
+BYTES=(`xxd -p -c 1 $DT_NAME-readback.dtb | tr '\n' ' '`)
+SUM=0
+for (( i=0; i<${#BYTES[@]}; i++)); do
+	SUM=$((SUM+0x${BYTES[i]}))
+done
+READBACK_SUM=$SUM
+
+if [ "$READBACK_SUM" != "$B_SUM" ]; then
+	killshow
+	show.elf "$DIR/res/fail.png" 2
+	echo "READBACK $READBACK_SUM"
+	echo "EXPECTED $B_SUM"
+	echo "post-write readback verification failed"
+
+	# safety net: restore the original dtb from the pre-write backup,
+	# but only if we actually have one to restore from
+	if [ -s "$DIR/PanelFix-backup.dtb" ]; then
+		dd if="$DIR/PanelFix-backup.dtb" of=$DEV_PATH bs=1 seek=$DTB_OFFSET conv=notrunc 2>/dev/null
+		sync
+		echo "restored original dtb from backup"
+	fi
+
+	exit 1
+fi
 
 echo "applied fix successfully!"
 
