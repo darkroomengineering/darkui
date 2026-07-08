@@ -273,9 +273,9 @@ static void Game_open(char* path) {
 
 	// m3u-based?
 	char* tmp;
-	char m3u_path[256];
-	char base_path[256];
-	char dir_name[256];
+	char m3u_path[MAX_PATH];
+	char base_path[MAX_PATH];
+	char dir_name[MAX_PATH];
 
 	strcpy(m3u_path, game.path);
 	tmp = strrchr(m3u_path, '/') + 1;
@@ -322,6 +322,7 @@ void Game_changeDisc(char* path) {
 	game_info.data = game.data;
 	game_info.size = game.size;
 
+	if (!disk_control_ext.replace_image_index) return;
 	disk_control_ext.replace_image_index(0, &game_info);
 	putFile(CHANGE_DISC_PATH, path); // MinUI still needs to know this to update recents.txt
 }
@@ -358,7 +359,10 @@ void SRAM_write(void) {
 	SRAM_getPath(filename);
 	printf("sav path (write): %s\n", filename);
 
-	FILE *sram_file = fopen(filename, "w");
+	char tmp_filename[MAX_PATH];
+	snprintf(tmp_filename, sizeof(tmp_filename), "%s.tmp", filename);
+
+	FILE *sram_file = fopen(tmp_filename, "w");
 	if (!sram_file) {
 		LOG_error("Error opening SRAM file: %s\n", strerror(errno));
 		return;
@@ -366,11 +370,15 @@ void SRAM_write(void) {
 
 	void *sram = core.get_memory_data(RETRO_MEMORY_SAVE_RAM);
 
-	if (!sram || sram_size != fwrite(sram, 1, sram_size, sram_file)) {
+	int write_ok = sram && sram_size == fwrite(sram, 1, sram_size, sram_file);
+	if (!write_ok) {
 		LOG_error("Error writing SRAM data to file\n");
 	}
 
 	fclose(sram_file);
+
+	if (write_ok) rename(tmp_filename, filename);
+	else remove(tmp_filename);
 
 	sync();
 }
@@ -407,7 +415,10 @@ void RTC_write(void) {
 	RTC_getPath(filename);
 	printf("rtc path (write) size(%u): %s\n", rtc_size, filename);
 
-	FILE *rtc_file = fopen(filename, "w");
+	char tmp_filename[MAX_PATH];
+	snprintf(tmp_filename, sizeof(tmp_filename), "%s.tmp", filename);
+
+	FILE *rtc_file = fopen(tmp_filename, "w");
 	if (!rtc_file) {
 		LOG_error("Error opening RTC file: %s\n", strerror(errno));
 		return;
@@ -415,11 +426,15 @@ void RTC_write(void) {
 
 	void *rtc = core.get_memory_data(RETRO_MEMORY_RTC);
 
-	if (!rtc || rtc_size != fwrite(rtc, 1, rtc_size, rtc_file)) {
+	int write_ok = rtc && rtc_size == fwrite(rtc, 1, rtc_size, rtc_file);
+	if (!write_ok) {
 		LOG_error("Error writing RTC data to file\n");
 	}
 
 	fclose(rtc_file);
+
+	if (write_ok) rename(tmp_filename, filename);
+	else remove(tmp_filename);
 
 	sync();
 }
@@ -472,25 +487,31 @@ error:
 
 	fast_forward = was_ff;
 }
-void State_write(void) { // from picoarch
+int State_write(void) { // from picoarch
 	size_t state_size = core.serialize_size();
-	if (!state_size) return;
+	if (!state_size) return 0;
 
 	int was_ff = fast_forward;
 	fast_forward = 0;
 
-	void *state = calloc(1, state_size);
+	int success = 0;
+	void *state = NULL;
+	FILE *state_file = NULL;
+	char filename[MAX_PATH] = "";
+	char tmp_filename[MAX_PATH] = "";
+
+	state = calloc(1, state_size);
 	if (!state) {
 		LOG_error("Couldn't allocate memory for state\n");
 		goto error;
 	}
 
-	char filename[MAX_PATH];
 	State_getPath(filename);
+	snprintf(tmp_filename, sizeof(tmp_filename), "%s.tmp", filename);
 
-	FILE *state_file = fopen(filename, "w");
+	state_file = fopen(tmp_filename, "w");
 	if (!state_file) {
-		LOG_error("Error opening state file: %s (%s)\n", filename, strerror(errno));
+		LOG_error("Error opening state file: %s (%s)\n", tmp_filename, strerror(errno));
 		goto error;
 	}
 
@@ -504,13 +525,25 @@ void State_write(void) { // from picoarch
 		goto error;
 	}
 
+	fclose(state_file);
+	state_file = NULL;
+
+	if (rename(tmp_filename, filename) != 0) {
+		LOG_error("Error renaming state file: %s (%s)\n", filename, strerror(errno));
+		goto error;
+	}
+
+	success = 1;
+
 error:
 	if (state) free(state);
 	if (state_file) fclose(state_file);
+	if (!success && tmp_filename[0]) remove(tmp_filename);
 
 	sync();
 
 	fast_forward = was_ff;
+	return success;
 }
 void State_autosave(void) {
 	int last_state_slot = state_slot;
@@ -905,7 +938,7 @@ void Config_syncFrontend(char* key, int value) {
 static void OptionList_setOptionValue(OptionList* list, const char* key, const char* value);
 static void Config_getPath(char* filename, int override) {
 	char device_tag[64] = {0};
-	if (config.device_tag) sprintf(device_tag,"-%s",config.device_tag);
+	if (config.device_tag) snprintf(device_tag, sizeof(device_tag), "-%s", config.device_tag);
 	if (override) sprintf(filename, "%s/%s%s.cfg", core.config_dir, game.name, device_tag);
 	else sprintf(filename, "%s/minarch%s.cfg", core.config_dir, device_tag);
 	LOG_info("Config_getPath %s\n", filename);
@@ -1106,7 +1139,7 @@ static void Config_load(void) {
 		getEmuPath((char *)core.tag, device_default_path);
 		tmp = strrchr(device_default_path, '/');
 		char filename[64];
-		sprintf(filename,"/default-%s.cfg", config.device_tag);
+		snprintf(filename, sizeof(filename), "/default-%s.cfg", config.device_tag);
 		strcpy(tmp,filename);
 	}
 
@@ -2998,7 +3031,6 @@ int main(int argc , char* argv[]) {
 				video_refresh_callback_main(backbuffer->pixels,backbuffer->w,backbuffer->h,backbuffer->pitch);
 				GFX_flip(screen);
 			}
-			core_rq = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
 			pthread_mutex_unlock(&core_mx);
 		}
 

@@ -194,7 +194,7 @@ void SRAM_write(void);
 void RTC_write(void);
 void State_getPath(char* filename);
 void State_read(void);
-void State_write(void);
+int State_write(void);
 void State_autosave(void);
 
 void setOverclock(int i);
