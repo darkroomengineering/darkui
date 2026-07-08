@@ -21,7 +21,7 @@ SDL?=SDL
 
 TARGET = minarch
 INCDIR = -I. -I./libretro-common/include/ -I../common/ -I../../$(PLATFORM)/platform/
-SOURCE = $(TARGET).c menu.c ../common/scaler.c ../common/utils.c ../common/gfx.c ../common/snd.c ../common/pad.c ../common/pwr.c ../common/api.c ../../$(PLATFORM)/platform/platform.c
+SOURCE = $(TARGET).c menu.c ../common/scaler.c ../common/utils.c ../common/gfx.c ../common/snd.c ../common/pad.c ../common/pwr.c ../../$(PLATFORM)/platform/platform.c
 
 CC = $(CROSS_COMPILE)gcc
 CFLAGS   = $(ARCH) -fomit-frame-pointer

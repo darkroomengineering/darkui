@@ -182,12 +182,6 @@ static int Menu_message(char* message, char** pairs) {
 
 static int Menu_options(MenuList* list);
 
-static int MenuList_freeItems(MenuList* list, int i) {
-	// TODO: what calls this? do menu's register for needing it? then call it on quit for each?
-	if (list->items) free(list->items);
-	return MENU_CALLBACK_NOP;
-}
-
 static int OptionFrontend_optionChanged(MenuList* list, int i) {
 	MenuItem* item = &list->items[i];
 	Config_syncFrontend(item->key, item->value);
@@ -309,7 +303,7 @@ static void Option_unbindButton(ButtonMapping* button) {
 	button->local = -1;
 	button->mod = 0;
 }
-int OptionControls_bind(MenuList* list, int i) {
+static int OptionControls_bind(MenuList* list, int i) {
 	MenuItem* item = &list->items[i];
 	if (item->values!=button_labels) {
 		// LOG_info("changed gamepad_type\n");

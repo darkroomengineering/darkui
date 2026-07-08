@@ -72,8 +72,7 @@ int main (int argc, char *argv[]) {
 	uint32_t input;
 	uint32_t val;
 	uint32_t menu_pressed = 0;
-	uint32_t power_pressed = 0;
-	
+
 	uint32_t up_pressed = 0;
 	uint32_t up_just_pressed = 0;
 	uint32_t up_repeat_at = 0;
@@ -106,9 +105,6 @@ int main (int argc, char *argv[]) {
 					case CODE_MENU:
 						menu_pressed = val;
 					break;
-					case CODE_POWER:
-						power_pressed = val;
-					break;
 					case CODE_PLUS:
 						up_pressed = up_just_pressed = val;
 						if (val) up_repeat_at = now + 300;
@@ -125,7 +121,6 @@ int main (int argc, char *argv[]) {
 		
 		if (ignore) {
 			menu_pressed = 0;
-			power_pressed = 0;
 			up_pressed = up_just_pressed = 0;
 			down_pressed = down_just_pressed = 0;
 			up_repeat_at = 0;

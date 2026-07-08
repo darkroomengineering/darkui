@@ -1,6 +1,7 @@
 #define _GNU_SOURCE // for strcasestr
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -202,4 +203,33 @@ uint64_t getMicroseconds(void) {
     ret += (uint64_t)tv.tv_usec;
 
     return ret;
+}
+
+///////////////////////////////////////
+
+void LOG_note(int level, const char* fmt, ...) {
+	char buf[1024] = {0};
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+	switch(level) {
+#ifdef DEBUG
+	case LOG_DEBUG:
+		printf("[DEBUG] %s", buf);
+		break;
+#endif
+	case LOG_INFO:
+		printf("[INFO] %s", buf);
+		break;
+	case LOG_WARN:
+		fprintf(stderr, "[WARN] %s", buf);
+		break;
+	case LOG_ERROR:
+		fprintf(stderr, "[ERROR] %s", buf);
+		break;
+	default:
+		break;
+	}
+	fflush(stdout);
 }

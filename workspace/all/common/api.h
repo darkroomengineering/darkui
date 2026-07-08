@@ -3,21 +3,7 @@
 #include "sdl.h"
 #include "platform.h"
 #include "scaler.h"
-
-///////////////////////////////
-
-enum {
-	LOG_DEBUG = 0,
-	LOG_INFO,
-	LOG_WARN,
-	LOG_ERROR,
-};
-
-#define LOG_debug(fmt, ...) LOG_note(LOG_DEBUG, fmt, ##__VA_ARGS__)
-#define LOG_info(fmt, ...) LOG_note(LOG_INFO, fmt, ##__VA_ARGS__)
-#define LOG_warn(fmt, ...) LOG_note(LOG_WARN, fmt, ##__VA_ARGS__)
-#define LOG_error(fmt, ...) LOG_note(LOG_ERROR, fmt, ##__VA_ARGS__)
-void LOG_note(int level, const char* fmt, ...);
+#include "utils.h" // LOG_*
 
 ///////////////////////////////
 
@@ -267,7 +253,6 @@ void PWR_update(int* dirty, int* show_setting, PWR_callback_t before_sleep, PWR_
 
 void PWR_disablePowerOff(void);
 void PWR_powerOff(void);
-int PWR_isPoweringOff(void);
 
 void PWR_fauxSleep(void);
 

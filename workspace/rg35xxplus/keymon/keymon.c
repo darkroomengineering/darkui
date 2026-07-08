@@ -105,9 +105,9 @@ int main (int argc, char *argv[]) {
 
 			if (( ev.type != EV_KEY ) || ( val > REPEAT )) continue;
 			// printf("code: %i (%i)\n", ev.code, val); fflush(stdout);
-			// NOTE: no CODE_POWER/power_pressed case here (unlike rg35xx/keymon.c) --
-			// on this platform the power key is handled directly by minui/minarch's own
-			// input polling, not by keymon. See workspace/rg35xxplus/platform/platform.c:
+			// NOTE: no power-key case here -- the power key is handled directly by
+			// minui/minarch's own input polling, not by keymon.
+			// See workspace/rg35xxplus/platform/platform.c:
 			// PLAT_pollInput() maps the raw evdev power key (RAW_POWER, KEY_POWER=116) to
 			// BTN_POWER/BTN_ID_POWER (platform.c:296), and PLAT_shouldWake() reads the same
 			// raw code directly off /dev/input to wake from sleep (platform.c:376-393).
