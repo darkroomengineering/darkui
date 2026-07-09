@@ -31,6 +31,9 @@ export RGXX_MODEL=`strings /mnt/vendor/bin/dmenu.bin | grep ^RG`
 
 keymon.elf & # > $LOGS_PATH/keymon.txt 2>&1 &
 
+# optional Wi-Fi on boot for SSH (no-op unless .userdata/wifi.txt exists)
+"$SYSTEM_PATH/bin/wifi.sh" &
+
 #######################################
 
 mkdir -p "$LOGS_PATH"
