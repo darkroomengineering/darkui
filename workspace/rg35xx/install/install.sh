@@ -59,10 +59,8 @@ if [ ! -f $FLAG_PATH ] || was_updated; then
 	cp $SYSTEM_PATH/dat/dmenu.bin /misc
 	cp $SYSTEM_PATH/dat/ramdisk.img /misc
 	
-	# boot logo, only installed, never updated
-	if [ ! -f $FLAG_PATH ]; then
-		cp $SYSTEM_PATH/dat/boot_logo.bmp.gz /misc
-	fi
+	# boot logo (darkUI branding) — refreshed on every install/update
+	cp $SYSTEM_PATH/dat/boot_logo.bmp.gz /misc
 	# charging graphic, only installed, never updated
 	if [ ! -f /misc/charging.png ]; then
 		cp $SYSTEM_PATH/dat/charging.png /misc
