@@ -1556,6 +1556,7 @@ static int setFastForward(int enable) {
 static uint32_t buttons = 0; // RETRO_DEVICE_ID_JOYPAD_* buttons
 static int ignore_menu = 0;
 static int show_setting = 0; // 1=brightness, 2=volume; drawn over the game frame in video_refresh_callback_main
+static int overlay_clear = 0; // frames left to fully clear after the overlay disappears (rg35xx letterbox cleanup)
 static void input_poll_callback(void) {
 	PAD_poll();
 
@@ -2669,6 +2670,13 @@ static void video_refresh_callback_main(const void *data, unsigned width, unsign
 	renderer.src = (void*)data;
 	renderer.dst = screen->pixels;
 	// LOG_info("video_refresh_callback: %ix%i@%i %ix%i@%i\n",width,height,pitch,screen->w,screen->h,screen->pitch);
+
+	// On framebuffer platforms (rg35xx) the settings overlay is drawn straight into the
+	// persistent framebuffer; the parts that land in the letterbox bars aren't covered by
+	// the game blit, so they linger after the overlay times out. Wipe the whole frame for a
+	// couple of pages once it disappears (harmless on the GPU path, which clears every frame).
+	if (show_setting) overlay_clear = 2;
+	else if (overlay_clear>0) { GFX_clearAll(); overlay_clear--; }
 
 	GFX_blitRenderer(&renderer);
 
