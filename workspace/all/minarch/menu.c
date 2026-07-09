@@ -1570,7 +1570,10 @@ void Menu_loop(void) {
 			// list — pills stay full PILL_SIZE (the sprite is fixed-size; shrinking it
 			// clips the caps). Instead reserve a row of space for the bottom hints so the
 			// 6-item menu sits above them, and use a slightly smaller font.
-			oy = (((DEVICE_HEIGHT / FIXED_SCALE) - PADDING * 2 - PILL_SIZE) - (MENU_ITEM_COUNT * PILL_SIZE)) / 2;
+			int step = PILL_SIZE - 4; // tighter row pitch (pill stays full size, just steps closer)
+			int band_top = PADDING + PILL_SIZE;                                    // below the game title
+			int band_bot = (DEVICE_HEIGHT / FIXED_SCALE) - PADDING - BUTTON_SIZE;  // above the bottom hints
+			oy = band_top + ((band_bot - band_top) - (MENU_ITEM_COUNT * step)) / 2 - PADDING;
 			for (int i=0; i<MENU_ITEM_COUNT; i++) {
 				char* item = menu.items[i];
 				SDL_Color text_color = COLOR_WHITE;
@@ -1598,7 +1601,7 @@ void Menu_loop(void) {
 					// pill
 					GFX_blitPill(ASSET_WHITE_PILL, screen, &(SDL_Rect){
 						SCALE1(PADDING),
-						SCALE1(oy + PADDING + (i * PILL_SIZE)),
+						SCALE1(oy + PADDING + (i * step)),
 						ow,
 						SCALE1(PILL_SIZE)
 					});
@@ -1609,7 +1612,7 @@ void Menu_loop(void) {
 					text = TTF_RenderUTF8_Blended(font.medium, item, COLOR_BLACK);
 					SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 						SCALE1(2 + PADDING + BUTTON_PADDING),
-						SCALE1(1 + PADDING + oy + (i * PILL_SIZE) + 6)
+						SCALE1(1 + PADDING + oy + (i * step) + 6)
 					});
 					SDL_FreeSurface(text);
 				}
@@ -1618,7 +1621,7 @@ void Menu_loop(void) {
 				text = TTF_RenderUTF8_Blended(font.medium, item, text_color);
 				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 					SCALE1(PADDING + BUTTON_PADDING),
-					SCALE1(oy + PADDING + (i * PILL_SIZE) + 6)
+					SCALE1(oy + PADDING + (i * step) + 6)
 				});
 				SDL_FreeSurface(text);
 			}
