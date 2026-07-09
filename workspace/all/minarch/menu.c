@@ -1166,12 +1166,23 @@ static int Menu_inCollection(const char* name, const char* rel) {
 	return found;
 }
 
+// Row label with a leading marker when the game is in the collection, so membership
+// is visible per-row (MENU_LIST only shows desc as a footer). item->key holds the
+// real collection name; item->name is this display string.
+static char* Menu_collLabel(const char* name, int in) {
+	char* s = malloc(strlen(name) + 8);
+	if (!s) return strdup(name);
+	sprintf(s, "%s%s", in ? FAV_CHECK " " : "", name);
+	return s;
+}
+
 static int Menu_toggleCollection(MenuList* list, int i) {
 	MenuItem* item = &list->items[i];
 	char* rel = game.path + strlen(SDCARD_PATH);
+	char* cname = item->key ? item->key : item->name;
 	char path[MAX_PATH];
-	snprintf(path, sizeof(path), COLLECTIONS_DIR "/%s.txt", item->name);
-	if (Menu_inCollection(item->name, rel)) {
+	snprintf(path, sizeof(path), COLLECTIONS_DIR "/%s.txt", cname);
+	if (Menu_inCollection(cname, rel)) {
 		// remove entry (temp + rename = atomic)
 		FILE* in = fopen(path, "r");
 		if (in) {
@@ -1189,14 +1200,15 @@ static int Menu_toggleCollection(MenuList* list, int i) {
 				rename(tmp, path);
 			} else fclose(in);
 		}
-		item->desc = "";
 	}
 	else {
 		mkdir(COLLECTIONS_DIR, 0755);
 		FILE* out = fopen(path, "a");
 		if (out) { fprintf(out, "%s\n", rel); fclose(out); }
-		item->desc = FAV_CHECK;
 	}
+	// refresh the row label to reflect membership
+	free(item->name);
+	item->name = Menu_collLabel(cname, Menu_inCollection(cname, rel));
 	return MENU_CALLBACK_NOP;
 }
 
@@ -1326,20 +1338,19 @@ static void Menu_collections(void) {
 		MenuItem* items = calloc(n + 3, sizeof(MenuItem));
 		items[0].name = strdup("[ New Collection ]");
 		items[0].on_confirm = Menu_newCollection;
-		items[0].desc = "";
-		items[1].name = strdup("Favorites");
+		items[1].key = strdup("Favorites");
+		items[1].name = Menu_collLabel("Favorites", Menu_inCollection("Favorites", rel));
 		items[1].on_confirm = Menu_toggleCollection;
-		items[1].desc = Menu_inCollection("Favorites", rel) ? FAV_CHECK : "";
 		for (int i=0; i<n; i++) {
-			items[i+2].name = names[i];
+			items[i+2].key = names[i]; // takes ownership of the strdup'd name
+			items[i+2].name = Menu_collLabel(names[i], Menu_inCollection(names[i], rel));
 			items[i+2].on_confirm = Menu_toggleCollection;
-			items[i+2].desc = Menu_inCollection(names[i], rel) ? FAV_CHECK : "";
 		}
 
 		MenuList list = { .type = MENU_LIST, .desc = "Add to collection", .items = items };
 		Menu_options(&list);
 
-		for (int i=0; i<n+2; i++) free(items[i].name);
+		for (int i=0; i<n+2; i++) { free(items[i].name); free(items[i].key); }
 		free(items);
 	} while (collections_dirty);
 }
