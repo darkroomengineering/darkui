@@ -1567,8 +1567,10 @@ void Menu_loop(void) {
 			else GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP", NULL }, 0, screen, 0);
 			GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OKAY", NULL }, 1, screen, 1);
 
-			// list
-			oy = (((DEVICE_HEIGHT / FIXED_SCALE) - PADDING * 2) - (MENU_ITEM_COUNT * PILL_SIZE)) / 2;
+			// list — tighter rows + smaller font so the (now 6-item) menu clears the
+			// top status and bottom hints instead of crowding them
+			int rh = PILL_SIZE - 5;
+			oy = (((DEVICE_HEIGHT / FIXED_SCALE) - PADDING * 2) - (MENU_ITEM_COUNT * rh)) / 2;
 			for (int i=0; i<MENU_ITEM_COUNT; i++) {
 				char* item = menu.items[i];
 				SDL_Color text_color = COLOR_WHITE;
@@ -1580,43 +1582,43 @@ void Menu_loop(void) {
 							SCALE1(PADDING),
 							SCALE1(oy + PADDING),
 							screen->w - SCALE1(PADDING * 2),
-							SCALE1(PILL_SIZE)
+							SCALE1(rh)
 						});
-						text = TTF_RenderUTF8_Blended(font.large, disc_name, COLOR_WHITE);
+						text = TTF_RenderUTF8_Blended(font.medium, disc_name, COLOR_WHITE);
 						SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 							screen->w - SCALE1(PADDING + BUTTON_PADDING) - text->w,
-							SCALE1(oy + PADDING + 4)
+							SCALE1(oy + PADDING + 3)
 						});
 						SDL_FreeSurface(text);
 					}
 
-					TTF_SizeUTF8(font.large, item, &ow, NULL);
+					TTF_SizeUTF8(font.medium, item, &ow, NULL);
 					ow += SCALE1(BUTTON_PADDING*2);
 
 					// pill
 					GFX_blitPill(ASSET_WHITE_PILL, screen, &(SDL_Rect){
 						SCALE1(PADDING),
-						SCALE1(oy + PADDING + (i * PILL_SIZE)),
+						SCALE1(oy + PADDING + (i * rh)),
 						ow,
-						SCALE1(PILL_SIZE)
+						SCALE1(rh)
 					});
 					text_color = COLOR_WHITE;
 				}
 				else {
 					// shadow
-					text = TTF_RenderUTF8_Blended(font.large, item, COLOR_BLACK);
+					text = TTF_RenderUTF8_Blended(font.medium, item, COLOR_BLACK);
 					SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 						SCALE1(2 + PADDING + BUTTON_PADDING),
-						SCALE1(1 + PADDING + oy + (i * PILL_SIZE) + 4)
+						SCALE1(1 + PADDING + oy + (i * rh) + 3)
 					});
 					SDL_FreeSurface(text);
 				}
 
 				// text
-				text = TTF_RenderUTF8_Blended(font.large, item, text_color);
+				text = TTF_RenderUTF8_Blended(font.medium, item, text_color);
 				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 					SCALE1(PADDING + BUTTON_PADDING),
-					SCALE1(oy + PADDING + (i * PILL_SIZE) + 4)
+					SCALE1(oy + PADDING + (i * rh) + 3)
 				});
 				SDL_FreeSurface(text);
 			}

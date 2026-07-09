@@ -1394,7 +1394,59 @@ static void Menu_draw(SDL_Surface* screen, int show_version, int show_setting, S
 	GFX_flip(screen);
 }
 
-static void Menu_handleInput(unsigned long now, int show_setting, int* show_version, int* dirty) {
+// Simple yes/no modal. Returns 1 if confirmed (A), 0 if cancelled (B).
+static int Menu_confirm(SDL_Surface* screen, char* message) {
+	int result = 0, dirty = 1;
+	while (1) {
+		GFX_startFrame();
+		PAD_poll();
+		if (PAD_justPressed(BTN_A)) { result = 1; break; }
+		if (PAD_justPressed(BTN_B)) { result = 0; break; }
+		PWR_update(&dirty, NULL, NULL, NULL);
+		if (dirty) {
+			GFX_clear(screen);
+			GFX_blitMessage(font.medium, message, screen, &(SDL_Rect){ 0, SCALE1(PADDING), screen->w, screen->h - SCALE1(PILL_SIZE+PADDING) });
+			GFX_blitButtonGroup((char*[]){ "B","NO", "A","YES", NULL }, 1, screen, 1);
+			GFX_flip(screen);
+			dirty = 0;
+		}
+		else GFX_sync();
+	}
+	return result;
+}
+
+// Delete the collection under the cursor (the .txt only; games are untouched),
+// then rebuild the Collections list in place. Returns 1 if something changed.
+static int Menu_deleteSelectedCollection(SDL_Surface* screen) {
+	if (top->entries->count==0) return 0;
+	Entry* entry = top->entries->items[top->selected];
+	if (!(prefixMatch(COLLECTIONS_PATH, entry->path) && suffixMatch(".txt", entry->path))) return 0;
+
+	char msg[MAX_PATH];
+	snprintf(msg, sizeof(msg), "Delete collection\n\"%s\"?\n\nYour games are kept.", entry->name);
+	if (!Menu_confirm(screen, msg)) return 1; // cancelled, but redraw
+
+	unlink(entry->path);
+
+	// rebuild the current directory (Collections) in place
+	char cpath[MAX_PATH]; strcpy(cpath, top->path);
+	int sel = top->selected;
+	DirectoryArray_pop(stack);
+	top = Directory_new(cpath, sel);
+	Array_push(stack, top);
+
+	int cnt = top->entries->count;
+	if (cnt==0) { closeDirectory(); } // no collections left -> back out
+	else {
+		if (top->selected>=cnt) top->selected = cnt-1;
+		top->start = 0;
+		top->end = (cnt<MAIN_ROW_COUNT) ? cnt : MAIN_ROW_COUNT;
+		if (top->selected>=top->end) { top->end = top->selected+1; top->start = top->end-MAIN_ROW_COUNT; }
+	}
+	return 1;
+}
+
+static void Menu_handleInput(SDL_Surface* screen, unsigned long now, int show_setting, int* show_version, int* dirty) {
 	int selected = top->selected;
 	int total = top->entries->count;
 
@@ -1522,6 +1574,9 @@ static void Menu_handleInput(unsigned long now, int show_setting, int* show_vers
 
 			if (total>0) readyResume(top->entries->items[top->selected]);
 		}
+		else if (PAD_justPressed(BTN_Y)) {
+			if (Menu_deleteSelectedCollection(screen)) { total = top->entries->count; *dirty = 1; }
+		}
 		else if (PAD_justPressed(BTN_B) && stack->count>1) {
 			closeDirectory();
 			total = top->entries->count;
@@ -1582,7 +1637,7 @@ int main (int argc, char *argv[]) {
 		if (was_online!=is_online) dirty = 1;
 		was_online = is_online;
 
-		Menu_handleInput(now, show_setting, &show_version, &dirty);
+		Menu_handleInput(screen, now, show_setting, &show_version, &dirty);
 
 		if (dirty) {
 			Menu_draw(screen, show_version, show_setting, &version);
