@@ -1567,10 +1567,10 @@ void Menu_loop(void) {
 			else GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP", NULL }, 0, screen, 0);
 			GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OKAY", NULL }, 1, screen, 1);
 
-			// list — tighter rows + smaller font so the (now 6-item) menu clears the
-			// top status and bottom hints instead of crowding them
-			int rh = PILL_SIZE - 5;
-			oy = (((DEVICE_HEIGHT / FIXED_SCALE) - PADDING * 2) - (MENU_ITEM_COUNT * rh)) / 2;
+			// list — pills stay full PILL_SIZE (the sprite is fixed-size; shrinking it
+			// clips the caps). Instead reserve a row of space for the bottom hints so the
+			// 6-item menu sits above them, and use a slightly smaller font.
+			oy = (((DEVICE_HEIGHT / FIXED_SCALE) - PADDING * 2 - PILL_SIZE) - (MENU_ITEM_COUNT * PILL_SIZE)) / 2;
 			for (int i=0; i<MENU_ITEM_COUNT; i++) {
 				char* item = menu.items[i];
 				SDL_Color text_color = COLOR_WHITE;
@@ -1582,12 +1582,12 @@ void Menu_loop(void) {
 							SCALE1(PADDING),
 							SCALE1(oy + PADDING),
 							screen->w - SCALE1(PADDING * 2),
-							SCALE1(rh)
+							SCALE1(PILL_SIZE)
 						});
 						text = TTF_RenderUTF8_Blended(font.medium, disc_name, COLOR_WHITE);
 						SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 							screen->w - SCALE1(PADDING + BUTTON_PADDING) - text->w,
-							SCALE1(oy + PADDING + 3)
+							SCALE1(oy + PADDING + 6)
 						});
 						SDL_FreeSurface(text);
 					}
@@ -1598,9 +1598,9 @@ void Menu_loop(void) {
 					// pill
 					GFX_blitPill(ASSET_WHITE_PILL, screen, &(SDL_Rect){
 						SCALE1(PADDING),
-						SCALE1(oy + PADDING + (i * rh)),
+						SCALE1(oy + PADDING + (i * PILL_SIZE)),
 						ow,
-						SCALE1(rh)
+						SCALE1(PILL_SIZE)
 					});
 					text_color = COLOR_WHITE;
 				}
@@ -1609,7 +1609,7 @@ void Menu_loop(void) {
 					text = TTF_RenderUTF8_Blended(font.medium, item, COLOR_BLACK);
 					SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 						SCALE1(2 + PADDING + BUTTON_PADDING),
-						SCALE1(1 + PADDING + oy + (i * rh) + 3)
+						SCALE1(1 + PADDING + oy + (i * PILL_SIZE) + 6)
 					});
 					SDL_FreeSurface(text);
 				}
@@ -1618,7 +1618,7 @@ void Menu_loop(void) {
 				text = TTF_RenderUTF8_Blended(font.medium, item, text_color);
 				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 					SCALE1(PADDING + BUTTON_PADDING),
-					SCALE1(oy + PADDING + (i * rh) + 3)
+					SCALE1(oy + PADDING + (i * PILL_SIZE) + 6)
 				});
 				SDL_FreeSurface(text);
 			}
