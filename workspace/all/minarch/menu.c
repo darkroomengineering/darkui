@@ -1204,42 +1204,144 @@ static int Menu_collectionNameCmp(const void* a, const void* b) {
 	return strcmp(*(const char**)a, *(const char**)b);
 }
 
+// Minimal on-screen keyboard for naming a new collection. Returns 1 if the user
+// confirmed a non-empty name (written to out), 0 if cancelled.
+static int Menu_keyboard(char* out, int maxlen) {
+	static const char* KB[] = { "ABCDEFGHIJ", "KLMNOPQRST", "UVWXYZ0123", "456789 -_" };
+	const int nrows = 4;
+	int cr = 0, cc = 0, len = 0, result = 0, done = 0, dirty = 1;
+	out[0] = '\0';
+
+	GFX_setMode(MODE_MAIN);
+	while (!done) {
+		GFX_startFrame();
+		PAD_poll();
+
+		if (PAD_justRepeated(BTN_UP))         { cr = (cr - 1 + nrows) % nrows; dirty = 1; }
+		else if (PAD_justRepeated(BTN_DOWN))  { cr = (cr + 1) % nrows; dirty = 1; }
+		else if (PAD_justRepeated(BTN_LEFT))  { cc -= 1; dirty = 1; }
+		else if (PAD_justRepeated(BTN_RIGHT)) { cc += 1; dirty = 1; }
+		int rl = strlen(KB[cr]);
+		if (cc < 0) cc = rl - 1;
+		if (cc >= rl) cc = 0;
+
+		if (PAD_justPressed(BTN_A)) {
+			if (len < maxlen - 1) { out[len++] = KB[cr][cc]; out[len] = '\0'; dirty = 1; }
+		}
+		else if (PAD_justPressed(BTN_B)) {
+			if (len > 0) { out[--len] = '\0'; dirty = 1; }
+			else { result = 0; done = 1; }
+		}
+		else if (PAD_justPressed(BTN_START)) {
+			if (len > 0) { result = 1; done = 1; }
+		}
+		else if (PAD_justPressed(BTN_MENU)) { result = 0; done = 1; }
+
+		PWR_update(&dirty, NULL, Menu_beforeSleep, Menu_afterSleep);
+		if (done) break;
+
+		if (dirty) {
+			GFX_clear(screen);
+			char shown[192];
+			snprintf(shown, sizeof(shown), "%s_", out);
+			GFX_blitText(font.medium, len ? shown : "Enter collection name",
+				0, COLOR_WHITE, screen,
+				&(SDL_Rect){ SCALE1(PADDING), SCALE1(PADDING), screen->w - SCALE1(PADDING*2), SCALE1(PILL_SIZE) });
+
+			int cw = SCALE1(30), ch = SCALE1(30);
+			int gx = (screen->w - 10 * cw) / 2;
+			int gy = SCALE1(PADDING * 2 + PILL_SIZE);
+			for (int r = 0; r < nrows; r++) {
+				int n = strlen(KB[r]);
+				for (int c = 0; c < n; c++) {
+					int x = gx + c * cw, y = gy + r * ch;
+					if (r == cr && c == cc)
+						GFX_blitPill(ASSET_WHITE_PILL, screen, &(SDL_Rect){ x, y, cw, ch });
+					char k = KB[r][c];
+					char s[4]; if (k == ' ') { strcpy(s, "SP"); } else { s[0] = k; s[1] = '\0'; }
+					SDL_Surface* t = TTF_RenderUTF8_Blended(font.small, s, COLOR_WHITE);
+					if (t) {
+						SDL_BlitSurface(t, NULL, screen, &(SDL_Rect){ x + (cw - t->w) / 2, y + (ch - t->h) / 2 });
+						SDL_FreeSurface(t);
+					}
+				}
+			}
+			GFX_blitButtonGroup((char*[]){ "A","ADD", "B","DEL", NULL }, 0, screen, 0);
+			GFX_blitButtonGroup((char*[]){ "START","SAVE", NULL }, 1, screen, 1);
+			GFX_flip(screen);
+			dirty = 0;
+		}
+		else GFX_sync();
+		hdmimon();
+	}
+	GFX_setMode(MODE_MENU);
+	return result;
+}
+
+static int collections_dirty = 0; // set when the picker list needs rebuilding (new collection added)
+
+static int Menu_newCollection(MenuList* list, int i) {
+	char name[128] = "";
+	if (Menu_keyboard(name, sizeof(name)) && name[0]) {
+		// trim trailing spaces (the keyboard only offers filename-safe chars)
+		int n = strlen(name);
+		while (n > 0 && name[n-1] == ' ') name[--n] = '\0';
+		if (n > 0) {
+			mkdir(COLLECTIONS_DIR, 0755);
+			char path[MAX_PATH];
+			snprintf(path, sizeof(path), COLLECTIONS_DIR "/%s.txt", name);
+			char* rel = game.path + strlen(SDCARD_PATH);
+			FILE* out = fopen(path, "a"); // create + add the current game
+			if (out) { fprintf(out, "%s\n", rel); fclose(out); }
+			collections_dirty = 1; // rebuild the picker so the new collection shows
+			return MENU_CALLBACK_EXIT;
+		}
+	}
+	return MENU_CALLBACK_NOP;
+}
+
 static void Menu_collections(void) {
 	char* rel = game.path + strlen(SDCARD_PATH);
 	#define MAX_COLLECTIONS 128
-	char* names[MAX_COLLECTIONS];
-	int n = 0;
-	DIR* dh = opendir(COLLECTIONS_DIR);
-	if (dh) {
-		struct dirent* de;
-		while ((de = readdir(dh))!=NULL && n < MAX_COLLECTIONS) {
-			if (de->d_name[0]=='.' || !suffixMatch(".txt", de->d_name)) continue;
-			char base[128];
-			strncpy(base, de->d_name, sizeof(base)-1); base[sizeof(base)-1]='\0';
-			base[strlen(base)-4] = '\0'; // strip .txt
-			if (exactMatch(base, "Favorites")) continue; // added first, below
-			names[n++] = strdup(base);
+	do {
+		collections_dirty = 0;
+		char* names[MAX_COLLECTIONS];
+		int n = 0;
+		DIR* dh = opendir(COLLECTIONS_DIR);
+		if (dh) {
+			struct dirent* de;
+			while ((de = readdir(dh))!=NULL && n < MAX_COLLECTIONS) {
+				if (de->d_name[0]=='.' || !suffixMatch(".txt", de->d_name)) continue;
+				char base[128];
+				strncpy(base, de->d_name, sizeof(base)-1); base[sizeof(base)-1]='\0';
+				base[strlen(base)-4] = '\0'; // strip .txt
+				if (exactMatch(base, "Favorites")) continue; // added first, below
+				names[n++] = strdup(base);
+			}
+			closedir(dh);
 		}
-		closedir(dh);
-	}
-	qsort(names, n, sizeof(char*), Menu_collectionNameCmp);
+		qsort(names, n, sizeof(char*), Menu_collectionNameCmp);
 
-	// Favorites first, then the sorted collections; NULL-name terminator for Menu_options
-	MenuItem* items = calloc(n + 2, sizeof(MenuItem));
-	items[0].name = strdup("Favorites");
-	items[0].on_confirm = Menu_toggleCollection;
-	items[0].desc = Menu_inCollection("Favorites", rel) ? FAV_CHECK : "";
-	for (int i=0; i<n; i++) {
-		items[i+1].name = names[i];
-		items[i+1].on_confirm = Menu_toggleCollection;
-		items[i+1].desc = Menu_inCollection(names[i], rel) ? FAV_CHECK : "";
-	}
+		// [New Collection], then Favorites, then the sorted collections; NULL terminator
+		MenuItem* items = calloc(n + 3, sizeof(MenuItem));
+		items[0].name = strdup("[ New Collection ]");
+		items[0].on_confirm = Menu_newCollection;
+		items[0].desc = "";
+		items[1].name = strdup("Favorites");
+		items[1].on_confirm = Menu_toggleCollection;
+		items[1].desc = Menu_inCollection("Favorites", rel) ? FAV_CHECK : "";
+		for (int i=0; i<n; i++) {
+			items[i+2].name = names[i];
+			items[i+2].on_confirm = Menu_toggleCollection;
+			items[i+2].desc = Menu_inCollection(names[i], rel) ? FAV_CHECK : "";
+		}
 
-	MenuList list = { .type = MENU_LIST, .desc = "Add to collection", .items = items };
-	Menu_options(&list);
+		MenuList list = { .type = MENU_LIST, .desc = "Add to collection", .items = items };
+		Menu_options(&list);
 
-	for (int i=0; i<n+1; i++) free(items[i].name);
-	free(items);
+		for (int i=0; i<n+2; i++) free(items[i].name);
+		free(items);
+	} while (collections_dirty);
 }
 
 void Menu_loop(void) {
