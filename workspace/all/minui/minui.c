@@ -1383,7 +1383,11 @@ static void Menu_draw(SDL_Surface* screen, int show_version, int show_setting, S
 		}
 		else {
 			if (stack->count>1) {
-				GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OPEN", NULL }, 1, screen, 1);
+				Entry* sel = top->entries->items[top->selected];
+				if (prefixMatch(COLLECTIONS_PATH, sel->path) && suffixMatch(".txt", sel->path))
+					GFX_blitButtonGroup((char*[]){ "Y","DELETE", "B","BACK", "A","OPEN", NULL }, 1, screen, 1);
+				else
+					GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OPEN", NULL }, 1, screen, 1);
 			}
 			else {
 				GFX_blitButtonGroup((char*[]){ "A","OPEN", NULL }, 0, screen, 1);
