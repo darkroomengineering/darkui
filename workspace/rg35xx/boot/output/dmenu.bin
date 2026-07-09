@@ -1,5 +1,18 @@
 #!/system/bin/sh
 
+# NOTE: unlike workspace/rg35xxplus/boot/boot.sh, this script has no
+# `mountpoint -q` remount guards and no `>> $TF1_PATH/log.txt` logging.
+# That's intentional, not an oversight: this script runs under the stock
+# rg35xx (Android-derived) boot environment, which appears to ship only a
+# minimal busybox -- every non-trivial command below (grep, cut, tail,
+# uudecode, unzip, fbset, losetup, chroot) is invoked as `busybox <cmd>`
+# rather than as a standalone binary, and no `mountpoint` (busybox applet or
+# otherwise) is used anywhere else in this tree. There is no evidence a
+# `mountpoint` binary exists in this boot environment, so backporting the
+# Plus variant's guard would risk silently failing (or hanging) partway
+# through boot with no fallback. Do not backport without first confirming
+# `mountpoint` (or `busybox mountpoint`) is actually present on-device.
+
 /usbdbg.sh device
 
 TF1_PATH=/mnt/mmc # ROMS partition
@@ -58,8 +71,9 @@ if [ -f $UPDATE_PATH ]; then
 	dd if=/tmp/$ACTION of=/dev/fb0
 	sync
 	
-	busybox unzip -o $UPDATE_PATH -d $SDCARD_PATH
-	rm -f $UPDATE_PATH
+	if busybox unzip -o $UPDATE_PATH -d $SDCARD_PATH; then
+		rm -f $UPDATE_PATH
+	fi
 	
 	# the updated system finishes the install/update
 	$SYSTEM_PATH/bin/install.sh # &> $SDCARD_PATH/install.txt
