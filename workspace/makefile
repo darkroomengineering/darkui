@@ -24,6 +24,7 @@ all:
 	cd ./all/minput/ && make
 	cd ./all/syncsettings/ && make
 	cd ./all/say/ && make
+	if [ "$(PLATFORM)" = "rg35xxplus" ]; then cd ./all/wifi/ && make; fi
 	cd ./$(PLATFORM)/cores && make
 	cd ./$(PLATFORM) && make
 
@@ -36,4 +37,5 @@ clean:
 	cd ./all/minput/ && make clean
 	cd ./all/syncsettings/ && make clean
 	cd ./all/say/ && make clean
+	if [ "$(PLATFORM)" = "rg35xxplus" ]; then cd ./all/wifi/ && make clean; fi
 	cd ./$(PLATFORM) && make clean

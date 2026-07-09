@@ -54,7 +54,8 @@ system:
 	cp ./workspace/all/say/build/$(PLATFORM)/say.elf ./build/SYSTEM/$(PLATFORM)/bin/
 	cp ./workspace/all/clock/build/$(PLATFORM)/clock.elf ./build/EXTRAS/Tools/$(PLATFORM)/Clock.pak/
 	cp ./workspace/all/minput/build/$(PLATFORM)/minput.elf ./build/EXTRAS/Tools/$(PLATFORM)/Input.pak/
-	cp ./workspace/all/wifi/build/$(PLATFORM)/wifi.elf ./build/EXTRAS/Tools/$(PLATFORM)/Wi-Fi.pak/
+	# Wi-Fi tool is rg35xxplus-only (SDL2 + Wi-Fi hardware); rg35xx has neither
+	if [ "$(PLATFORM)" = "rg35xxplus" ]; then cp ./workspace/all/wifi/build/$(PLATFORM)/wifi.elf ./build/EXTRAS/Tools/$(PLATFORM)/Wi-Fi.pak/; fi
 
 cores: # TODO: can't assume every platform will have the same stock cores (platform should be responsible for copy too)
 	# stock cores
