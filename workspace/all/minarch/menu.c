@@ -9,6 +9,7 @@
 #include <libgen.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <dirent.h>
 #include <errno.h>
 #include <zlib.h>
 #include <pthread.h>
@@ -31,7 +32,7 @@ enum {
 	ITEM_SAVE,
 	ITEM_LOAD,
 	ITEM_OPTS,
-	ITEM_FAV,
+	ITEM_COLL,
 	ITEM_QUIT,
 };
 
@@ -73,57 +74,10 @@ static struct {
 		[ITEM_SAVE] = "Save",
 		[ITEM_LOAD] = "Load",
 		[ITEM_OPTS] = "Options",
-		[ITEM_FAV]  = "Add to Favorites",
+		[ITEM_COLL] = "Add to Collection",
 		[ITEM_QUIT] = "Quit",
 	}
 };
-
-// Favorites: a collection at /Collections/Favorites.txt shown by the launcher
-// alongside the auto-generated collections. Add/remove the current game.
-#define FAVORITES_PATH SDCARD_PATH "/Collections/Favorites.txt"
-
-static int Menu_isFavorite(void) {
-	char* rel = game.path + strlen(SDCARD_PATH);
-	FILE* file = fopen(FAVORITES_PATH, "r");
-	if (!file) return 0;
-	char line[256];
-	int found = 0;
-	while (fgets(line, sizeof(line), file)!=NULL) {
-		normalizeNewline(line);
-		trimTrailingNewlines(line);
-		if (exactMatch(line, rel)) { found = 1; break; }
-	}
-	fclose(file);
-	return found;
-}
-
-static void Menu_toggleFavorite(void) {
-	char* rel = game.path + strlen(SDCARD_PATH);
-	if (Menu_isFavorite()) {
-		// rewrite the file without this entry (temp + rename = atomic)
-		FILE* in = fopen(FAVORITES_PATH, "r");
-		if (!in) return;
-		char tmp_path[MAX_PATH];
-		snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", FAVORITES_PATH);
-		FILE* out = fopen(tmp_path, "w");
-		if (!out) { fclose(in); return; }
-		char line[256];
-		while (fgets(line, sizeof(line), in)!=NULL) {
-			normalizeNewline(line);
-			trimTrailingNewlines(line);
-			if (strlen(line)==0 || exactMatch(line, rel)) continue;
-			fprintf(out, "%s\n", line);
-		}
-		fclose(in); fclose(out);
-		rename(tmp_path, FAVORITES_PATH);
-	}
-	else {
-		mkdir(SDCARD_PATH "/Collections", 0755);
-		FILE* out = fopen(FAVORITES_PATH, "a");
-		if (out) { fprintf(out, "%s\n", rel); fclose(out); }
-	}
-	menu.items[ITEM_FAV] = Menu_isFavorite() ? "Remove from Favorites" : "Add to Favorites";
-}
 
 void Menu_init(void) {
 	menu.overlay = SDL_CreateRGBSurface(SDL_SWSURFACE,DEVICE_WIDTH,DEVICE_HEIGHT,FIXED_DEPTH,RGBA_MASK_AUTO);
@@ -138,8 +92,6 @@ void Menu_init(void) {
 	sprintf(menu.slot_path, "%s/%s.txt", menu.minui_dir, game.name);
 
 	if (simple_mode) menu.items[ITEM_OPTS] = "Reset";
-
-	menu.items[ITEM_FAV] = Menu_isFavorite() ? "Remove from Favorites" : "Add to Favorites";
 
 	if (game.m3u_path[0]) {
 		char* tmp;
@@ -1194,6 +1146,102 @@ static char* getAlias(char* path, char* alias) {
 	}
 }
 
+// ---- Collections picker -----------------------------------------------------
+// Add/remove the current game to/from a launcher collection (/Collections/<name>.txt).
+#define COLLECTIONS_DIR SDCARD_PATH "/Collections"
+#define FAV_CHECK "\xe2\x9c\x93" // ✓
+
+static int Menu_inCollection(const char* name, const char* rel) {
+	char path[MAX_PATH];
+	snprintf(path, sizeof(path), COLLECTIONS_DIR "/%s.txt", name);
+	FILE* f = fopen(path, "r");
+	if (!f) return 0;
+	char line[256];
+	int found = 0;
+	while (fgets(line, sizeof(line), f)!=NULL) {
+		normalizeNewline(line); trimTrailingNewlines(line);
+		if (exactMatch(line, rel)) { found = 1; break; }
+	}
+	fclose(f);
+	return found;
+}
+
+static int Menu_toggleCollection(MenuList* list, int i) {
+	MenuItem* item = &list->items[i];
+	char* rel = game.path + strlen(SDCARD_PATH);
+	char path[MAX_PATH];
+	snprintf(path, sizeof(path), COLLECTIONS_DIR "/%s.txt", item->name);
+	if (Menu_inCollection(item->name, rel)) {
+		// remove entry (temp + rename = atomic)
+		FILE* in = fopen(path, "r");
+		if (in) {
+			char tmp[MAX_PATH];
+			snprintf(tmp, sizeof(tmp), "%s.tmp", path);
+			FILE* out = fopen(tmp, "w");
+			if (out) {
+				char line[256];
+				while (fgets(line, sizeof(line), in)!=NULL) {
+					normalizeNewline(line); trimTrailingNewlines(line);
+					if (strlen(line)==0 || exactMatch(line, rel)) continue;
+					fprintf(out, "%s\n", line);
+				}
+				fclose(out); fclose(in);
+				rename(tmp, path);
+			} else fclose(in);
+		}
+		item->desc = "";
+	}
+	else {
+		mkdir(COLLECTIONS_DIR, 0755);
+		FILE* out = fopen(path, "a");
+		if (out) { fprintf(out, "%s\n", rel); fclose(out); }
+		item->desc = FAV_CHECK;
+	}
+	return MENU_CALLBACK_NOP;
+}
+
+static int Menu_collectionNameCmp(const void* a, const void* b) {
+	return strcmp(*(const char**)a, *(const char**)b);
+}
+
+static void Menu_collections(void) {
+	char* rel = game.path + strlen(SDCARD_PATH);
+	#define MAX_COLLECTIONS 128
+	char* names[MAX_COLLECTIONS];
+	int n = 0;
+	DIR* dh = opendir(COLLECTIONS_DIR);
+	if (dh) {
+		struct dirent* de;
+		while ((de = readdir(dh))!=NULL && n < MAX_COLLECTIONS) {
+			if (de->d_name[0]=='.' || !suffixMatch(".txt", de->d_name)) continue;
+			char base[128];
+			strncpy(base, de->d_name, sizeof(base)-1); base[sizeof(base)-1]='\0';
+			base[strlen(base)-4] = '\0'; // strip .txt
+			if (exactMatch(base, "Favorites")) continue; // added first, below
+			names[n++] = strdup(base);
+		}
+		closedir(dh);
+	}
+	qsort(names, n, sizeof(char*), Menu_collectionNameCmp);
+
+	// Favorites first, then the sorted collections; NULL-name terminator for Menu_options
+	MenuItem* items = calloc(n + 2, sizeof(MenuItem));
+	items[0].name = strdup("Favorites");
+	items[0].on_confirm = Menu_toggleCollection;
+	items[0].desc = Menu_inCollection("Favorites", rel) ? FAV_CHECK : "";
+	for (int i=0; i<n; i++) {
+		items[i+1].name = names[i];
+		items[i+1].on_confirm = Menu_toggleCollection;
+		items[i+1].desc = Menu_inCollection(names[i], rel) ? FAV_CHECK : "";
+	}
+
+	MenuList list = { .type = MENU_LIST, .desc = "Add to collection", .items = items };
+	Menu_options(&list);
+
+	for (int i=0; i<n+1; i++) free(items[i].name);
+	free(items);
+}
+
 void Menu_loop(void) {
 	menu.bitmap = SDL_CreateRGBSurfaceFrom(renderer.src, renderer.true_w, renderer.true_h, FIXED_DEPTH, renderer.src_p, RGBA_MASK_565);
 	// LOG_info("Menu_loop:menu.bitmap %ix%i\n", menu.bitmap->w,menu.bitmap->h);
@@ -1354,9 +1402,9 @@ void Menu_loop(void) {
 					}
 				}
 				break;
-				case ITEM_FAV:
-					Menu_toggleFavorite();
-					dirty = 1; // stay in the menu; the label flips to confirm
+				case ITEM_COLL:
+					Menu_collections();
+					dirty = 1; // returned from the picker; redraw the menu
 				break;
 				case ITEM_QUIT:
 					status = STATUS_QUIT;
