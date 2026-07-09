@@ -17,12 +17,18 @@ PSK=$(sed -n '2p' "$CONF" | tr -d '\r\n')
 ip link set wlan0 up 2>/dev/null
 
 WPA=/tmp/wifi.conf
-if [ -n "$PSK" ]; then
-	wpa_passphrase "$SSID" "$PSK" > "$WPA" 2>/dev/null || \
-		printf 'network={\n\tssid="%s"\n\tpsk="%s"\n}\n' "$SSID" "$PSK" > "$WPA"
-else
-	printf 'network={\n\tssid="%s"\n\tkey_mgmt=NONE\n}\n' "$SSID" > "$WPA"
-fi
+# ctrl_interface lets wpa_cli (and the Wi-Fi tool) manage the connection;
+# update_config=1 lets it persist networks back to the config.
+{
+	echo "ctrl_interface=/var/run/wpa_supplicant"
+	echo "update_config=1"
+	if [ -n "$PSK" ]; then
+		wpa_passphrase "$SSID" "$PSK" 2>/dev/null || \
+			printf 'network={\n\tssid="%s"\n\tpsk="%s"\n}\n' "$SSID" "$PSK"
+	else
+		printf 'network={\n\tssid="%s"\n\tkey_mgmt=NONE\n}\n' "$SSID"
+	fi
+} > "$WPA"
 
 killall -q wpa_supplicant 2>/dev/null
 wpa_supplicant -B -i wlan0 -c "$WPA" 2>/dev/null
