@@ -56,18 +56,27 @@ was_updated() {
 if [ ! -f $FLAG_PATH ] || was_updated; then
 	echo "updating misc partition"
 	mount -o remount,rw /dev/block/actb /misc
-	cp $SYSTEM_PATH/dat/dmenu.bin /misc
-	cp $SYSTEM_PATH/dat/ramdisk.img /misc
-	
-	# boot logo (darkUI branding) — refreshed on every install/update
-	cp $SYSTEM_PATH/dat/boot_logo.bmp.gz /misc
-	# charging graphic, only installed, never updated
-	if [ ! -f /misc/charging.png ]; then
-		cp $SYSTEM_PATH/dat/charging.png /misc
-	fi
+	# only mark the install complete once the critical boot files copied
+	# successfully; a failed copy leaves $FLAG_PATH unset so the next boot
+	# retries instead of rebooting into a half-written /misc
+	if cp $SYSTEM_PATH/dat/dmenu.bin /misc \
+		&& cp $SYSTEM_PATH/dat/ramdisk.img /misc \
+		&& cp $SYSTEM_PATH/dat/boot_logo.bmp.gz /misc; then
+		# boot logo (darkUI branding) is refreshed on every install/update above
+		# charging graphic, only installed, never updated
+		if [ ! -f /misc/charging.png ]; then
+			cp $SYSTEM_PATH/dat/charging.png /misc
+		fi
 
-	touch $FLAG_PATH
-	sync && reboot
+		touch $FLAG_PATH
+		sync && reboot
+	else
+		echo "misc copy failed; leaving update pending for retry"
+		sync
+		# return non-zero so boot.sh keeps MinUI.zip (its `install.sh && rm`)
+		# and the update is retried on the next boot instead of being lost
+		exit 1
+	fi
 fi
 
 # } &> /mnt/sdcard/install.txt

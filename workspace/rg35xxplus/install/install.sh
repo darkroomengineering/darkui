@@ -6,7 +6,12 @@ SYSTEM_PATH=${TF2_PATH}/.system/rg35xxplus
 
 # make sure dmenu stays up to date
 echo "update dmenu.bin"
-cp $SYSTEM_PATH/dat/dmenu.bin $TF1_PATH
+if ! cp $SYSTEM_PATH/dat/dmenu.bin $TF1_PATH; then
+	# non-zero exit so boot.sh keeps MinUI.zip for a retry instead of dropping it
+	echo "dmenu.bin copy failed; leaving update pending for retry"
+	sync
+	exit 1
+fi
 sync
 
 # --------------------------------------

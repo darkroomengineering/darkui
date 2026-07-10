@@ -71,12 +71,14 @@ if [ -f $UPDATE_PATH ]; then
 	dd if=/tmp/$ACTION of=/dev/fb0
 	sync
 	
+	# only finish the install if the extraction fully succeeded; a failed or
+	# partial unzip leaves MinUI.zip in place so the next boot retries cleanly
+	# instead of running install.sh against a half-written system. The zip is
+	# removed only after install.sh returns success (it reboots mid-install on a
+	# real install, so the zip is cleared on the following idempotent pass).
 	if busybox unzip -o $UPDATE_PATH -d $SDCARD_PATH; then
-		rm -f $UPDATE_PATH
+		$SYSTEM_PATH/bin/install.sh && rm -f $UPDATE_PATH # &> $SDCARD_PATH/install.txt
 	fi
-	
-	# the updated system finishes the install/update
-	$SYSTEM_PATH/bin/install.sh # &> $SDCARD_PATH/install.txt
 fi
 
 ROOTFS_IMAGE=$SYSTEM_PATH/rootfs.ext2

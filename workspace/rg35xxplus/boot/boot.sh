@@ -96,20 +96,21 @@ if [ -f $UPDATE_PATH ]; then
 		rm -rf $BOOT_PATH
 	fi
 
+	# only finish the install if the extraction fully succeeded; a failed or
+	# partial unzip leaves MinUI.zip in place so the next boot retries cleanly
+	# instead of running install.sh against a half-written system
 	if /tmp/unzip -o $UPDATE_PATH -d $SDCARD_PATH >> $TF1_PATH/log.txt; then
-		rm -f $UPDATE_PATH
+		# the updated system finishes the install/update; only drop the zip if
+		# install.sh reports success, so a failed finalize retries on next boot
+		echo "finishing update..." >> $TF1_PATH/log.txt
+		if $SYSTEM_PATH/bin/install.sh >> $TF1_PATH/log.txt; then
+			rm -f $UPDATE_PATH
+		else
+			echo "install failed, keeping $UPDATE_PATH for retry" >> $TF1_PATH/log.txt
+		fi
 	else
 		echo "unzip failed, keeping $UPDATE_PATH for retry" >> $TF1_PATH/log.txt
 	fi
-
-	# ls -la $SDCARD_PATH >> $TF1_PATH/log.txt
-	
-	# cd /tmp
-	# rm data installing updating bootlogo.bmp installing-r updating-r bootlogo-r.bmp unzip
-
-	# the updated system finishes the install/update
-	echo "finishing update..." >> $TF1_PATH/log.txt
-	$SYSTEM_PATH/bin/install.sh >> $TF1_PATH/log.txt
 fi
 
 if [ -f $SYSTEM_PATH/paks/MinUI.pak/launch.sh ]; then
