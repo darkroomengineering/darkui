@@ -160,11 +160,14 @@ static void Wifi_scanResults(void) {
 // on-screen keyboard, so both are escaped before ever being interpolated into
 // a shell command or a quoted wpa_supplicant config value.
 
-// escapes '"' and '\' for safe use inside a wpa_supplicant quoted config value
+// escapes '"' and '\' for safe use inside a wpa_supplicant quoted config value;
+// also drops any literal CR/LF, which would otherwise let an attacker-controlled
+// SSID inject additional wpa_supplicant.conf directives
 static void Wifi_confEscape(char* out, size_t outlen, char* in) {
 	size_t o = 0;
 	for (size_t i=0; in[i]!='\0' && o+2<outlen; i++) {
 		char c = in[i];
+		if (c=='\n' || c=='\r') continue; // never let a literal newline reach the config file
 		if (c=='"' || c=='\\') out[o++] = '\\';
 		if (o+1>=outlen) break;
 		out[o++] = c;
@@ -204,10 +207,22 @@ static int Wifi_writeConfig(char* ssid, char* password, int open) {
 		return 1;
 	}
 
+	// strip CR/LF from the SSID before it reaches wpa_passphrase: a literal
+	// newline would make wpa_passphrase emit a multi-line ssid="..." whose
+	// continuation line(s) would otherwise be copied into the config verbatim
+	// (only the first echoed ssid= line is dropped below)
+	char ssid_clean[WIFI_SSID_LEN];
+	size_t sc = 0;
+	for (size_t i=0; ssid[i]!='\0' && sc+1<sizeof(ssid_clean); i++) {
+		if (ssid[i]=='\n' || ssid[i]=='\r') continue;
+		ssid_clean[sc++] = ssid[i];
+	}
+	ssid_clean[sc] = '\0';
+
 	// prefer wpa_passphrase (hashes the psk); fall back to a plain psk="" block
 	char ssid_q[WIFI_SSID_LEN*4+4];
 	char pass_q[WIFI_PASS_LEN*4+4];
-	Wifi_shellQuote(ssid_q, sizeof(ssid_q), ssid);
+	Wifi_shellQuote(ssid_q, sizeof(ssid_q), ssid_clean);
 	Wifi_shellQuote(pass_q, sizeof(pass_q), password);
 
 	char cmd[sizeof(ssid_q)+sizeof(pass_q)+64];
@@ -218,8 +233,16 @@ static int Wifi_writeConfig(char* ssid, char* password, int open) {
 		f = fopen(WIFI_CONF_PATH, "a");
 		char line[256];
 		while (fgets(line, sizeof(line), p)) {
-			if (f) fputs(line, f);
 			wrote_psk = 1;
+			char* trimmed = line;
+			while (*trimmed==' ' || *trimmed=='\t') trimmed++;
+			// never trust wpa_passphrase's echoed ssid="..." line (it's the raw,
+			// unescaped SSID) -- drop it and inject our own escaped value instead
+			if (strncmp(trimmed, "ssid=", 5)==0) continue;
+			if (f) fputs(line, f);
+			if (f && strncmp(trimmed, "network={", 9)==0) {
+				fprintf(f, "\tssid=\"%s\"\n", ssid_esc);
+			}
 		}
 		pclose(p);
 		if (f) fclose(f);

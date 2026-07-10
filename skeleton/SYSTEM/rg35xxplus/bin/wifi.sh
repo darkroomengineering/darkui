@@ -17,16 +17,35 @@ PSK=$(sed -n '2p' "$CONF" | tr -d '\r\n')
 ip link set wlan0 up 2>/dev/null
 
 WPA=/tmp/wifi.conf
+# SSID/PSK are attacker-influenced (SSID comes from a nearby AP's beacon, PSK is
+# whatever was persisted for it) -- escape backslash and double-quote so neither
+# can break out of the quoted ssid="..."/psk="..." values written below. CR/LF
+# were already stripped when $CONF was read above.
+esc_ssid=$(printf '%s' "$SSID" | sed 's/\\/\\\\/g; s/"/\\"/g')
+esc_psk=$(printf '%s' "$PSK" | sed 's/\\/\\\\/g; s/"/\\"/g')
 # ctrl_interface lets wpa_cli (and the Wi-Fi tool) manage the connection;
 # update_config=1 lets it persist networks back to the config.
 {
 	echo "ctrl_interface=/var/run/wpa_supplicant"
 	echo "update_config=1"
 	if [ -n "$PSK" ]; then
-		wpa_passphrase "$SSID" "$PSK" 2>/dev/null || \
-			printf 'network={\n\tssid="%s"\n\tpsk="%s"\n}\n' "$SSID" "$PSK"
+		wpa_out=$(wpa_passphrase "$SSID" "$PSK" 2>/dev/null)
+		if [ -n "$wpa_out" ]; then
+			# never trust wpa_passphrase's echoed ssid="..." line (it's the raw,
+			# unescaped SSID) -- drop it and inject our own escaped value instead.
+			# ESC_SSID is read via ENVIRON, not -v, because awk's -v assignment
+			# re-interprets backslash escapes (POSIX "string constant" rules) and
+			# would silently strip the \" / \\ escaping sed just applied.
+			printf '%s\n' "$wpa_out" | ESC_SSID="$esc_ssid" awk '
+				/^[ \t]*ssid=/ { next }
+				{ print }
+				/^network=\{/ { printf "\tssid=\"%s\"\n", ENVIRON["ESC_SSID"] }
+			'
+		else
+			printf 'network={\n\tssid="%s"\n\tpsk="%s"\n}\n' "$esc_ssid" "$esc_psk"
+		fi
 	else
-		printf 'network={\n\tssid="%s"\n\tkey_mgmt=NONE\n}\n' "$SSID"
+		printf 'network={\n\tssid="%s"\n\tkey_mgmt=NONE\n}\n' "$esc_ssid"
 	fi
 } > "$WPA"
 
