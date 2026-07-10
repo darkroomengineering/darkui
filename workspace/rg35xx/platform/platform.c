@@ -382,6 +382,21 @@ void PLAT_setNearestNeighbor(int enabled) {
 static int next_effect = EFFECT_NONE;
 static int effect_type = EFFECT_NONE;
 void PLAT_setSharpness(int sharpness) {
+	// map the sharpness level to a display-engine scaling coefficient set so the
+	// menu option actually changes the picture (per its tooltip):
+	//   Sharp = nearest neighbor, Crisp = light upscale blend, Soft = linear
+	int scale_coef;
+	switch (sharpness) {
+		case SHARPNESS_SHARP: scale_coef = DE_SCOEF_NONE;         break;
+		case SHARPNESS_CRISP: scale_coef = DE_SCOEF_CRISPY;       break;
+		case SHARPNESS_SOFT:
+		default:              scale_coef = DE_SCOEF_HALF_ZOOMOUT; break;
+	}
+	DE_setScaleCoef(vid.de_mem, 0, scale_coef);
+	DE_setScaleCoef(vid.de_mem, 1, scale_coef);
+	DE_setScaleCoef(vid.de_mem, 2, scale_coef);
+	DE_setScaleCoef(vid.de_mem, 3, scale_coef);
+
 	// force effect to reload
 	// on scaling change
 	if (effect_type>=EFFECT_NONE) next_effect = effect_type;
@@ -564,6 +579,13 @@ void PLAT_powerOff(void) {
 	GFX_quit();
 	
 	system("shutdown");
+
+	// shutdown must not return to the caller: control would fall back into the
+	// launcher loop and re-run the *_quit() teardown above a second time
+	// (double-free of GFX assets / re-join of joined threads). Block until the
+	// sysrq-based shutdown actually powers the device off.
+	sync();
+	while (1) sleep(60);
 }
 
 ///////////////////////////////
