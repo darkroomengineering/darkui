@@ -44,7 +44,10 @@ echo "Pushing $MINUI_ZIP -> /mnt/mmc/MinUI.zip"
 adb push "$MINUI_ZIP" /mnt/mmc/MinUI.zip
 
 echo "Pushing $DMENU_BIN -> /misc/dmenu.bin"
+# /misc mounts read-only in the stock environment
+adb shell 'mount -o remount,rw /misc'
 adb push "$DMENU_BIN" /misc/dmenu.bin
+adb shell 'sync; mount -o remount,ro /misc' || true # busy is fine, we reboot next
 
 echo "Syncing and rebooting..."
 adb shell sync
