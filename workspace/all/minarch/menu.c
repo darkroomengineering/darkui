@@ -1148,12 +1148,11 @@ static char* getAlias(char* path, char* alias) {
 
 // ---- Collections picker -----------------------------------------------------
 // Add/remove the current game to/from a launcher collection (/Collections/<name>.txt).
-#define COLLECTIONS_DIR SDCARD_PATH "/Collections"
 #define FAV_CHECK "\xe2\x9c\x93" // ✓
 
 static int Menu_inCollection(const char* name, const char* rel) {
 	char path[MAX_PATH];
-	snprintf(path, sizeof(path), COLLECTIONS_DIR "/%s.txt", name);
+	snprintf(path, sizeof(path), COLLECTIONS_PATH "/%s.txt", name);
 	FILE* f = fopen(path, "r");
 	if (!f) return 0;
 	char line[256];
@@ -1181,7 +1180,7 @@ static int Menu_toggleCollection(MenuList* list, int i) {
 	char* rel = game.path + strlen(SDCARD_PATH);
 	char* cname = item->key ? item->key : item->name;
 	char path[MAX_PATH];
-	snprintf(path, sizeof(path), COLLECTIONS_DIR "/%s.txt", cname);
+	snprintf(path, sizeof(path), COLLECTIONS_PATH "/%s.txt", cname);
 	if (Menu_inCollection(cname, rel)) {
 		// remove entry (temp + rename = atomic)
 		FILE* in = fopen(path, "r");
@@ -1202,9 +1201,10 @@ static int Menu_toggleCollection(MenuList* list, int i) {
 		}
 	}
 	else {
-		mkdir(COLLECTIONS_DIR, 0755);
+		mkdir(COLLECTIONS_PATH, 0755);
 		FILE* out = fopen(path, "a");
 		if (out) { fprintf(out, "%s\n", rel); fclose(out); }
+		else Menu_message("Couldn't update collection", (char*[]){ "A","OKAY", NULL });
 	}
 	// refresh the row label to reflect membership
 	free(item->name);
@@ -1299,12 +1299,26 @@ static int Menu_newCollection(MenuList* list, int i) {
 		int n = strlen(name);
 		while (n > 0 && name[n-1] == ' ') name[--n] = '\0';
 		if (n > 0) {
-			mkdir(COLLECTIONS_DIR, 0755);
+			// FAT32/exFAT is case-insensitive: a typed "FAVORITES" would land on the
+			// same file as the hardcoded Favorites row but not match its case-sensitive
+			// exclusion, showing a duplicate aliased row. Fold it into the real one.
+			int is_favorites = !strcasecmp(name, "Favorites");
+			char* target = is_favorites ? "Favorites" : name;
+
+			mkdir(COLLECTIONS_PATH, 0755);
 			char path[MAX_PATH];
-			snprintf(path, sizeof(path), COLLECTIONS_DIR "/%s.txt", name);
+			snprintf(path, sizeof(path), COLLECTIONS_PATH "/%s.txt", target);
+			int already_existed = exists(path);
 			char* rel = game.path + strlen(SDCARD_PATH);
-			FILE* out = fopen(path, "a"); // create + add the current game
-			if (out) { fprintf(out, "%s\n", rel); fclose(out); }
+			FILE* out = fopen(path, "a"); // create (or join) + add the current game
+			if (!out) {
+				Menu_message("Couldn't create collection", (char*[]){ "A","OKAY", NULL });
+				return MENU_CALLBACK_NOP;
+			}
+			fprintf(out, "%s\n", rel);
+			fclose(out);
+			if (is_favorites) Menu_message("Added to existing collection: Favorites", (char*[]){ "A","OKAY", NULL });
+			else if (already_existed) Menu_message("Added to existing collection", (char*[]){ "A","OKAY", NULL });
 			collections_dirty = 1; // rebuild the picker so the new collection shows
 			return MENU_CALLBACK_EXIT;
 		}
@@ -1319,7 +1333,7 @@ static void Menu_collections(void) {
 		collections_dirty = 0;
 		char* names[MAX_COLLECTIONS];
 		int n = 0;
-		DIR* dh = opendir(COLLECTIONS_DIR);
+		DIR* dh = opendir(COLLECTIONS_PATH);
 		if (dh) {
 			struct dirent* de;
 			while ((de = readdir(dh))!=NULL && n < MAX_COLLECTIONS) {
@@ -1571,9 +1585,10 @@ void Menu_loop(void) {
 			// clips the caps). Instead reserve a row of space for the bottom hints so the
 			// 6-item menu sits above them, and use a slightly smaller font.
 			int step = PILL_SIZE - 4; // tighter row pitch (pill stays full size, just steps closer)
-			int band_top = PADDING + PILL_SIZE;                                    // below the game title
-			int band_bot = (DEVICE_HEIGHT / FIXED_SCALE) - PADDING - BUTTON_SIZE;  // above the bottom hints
-			oy = band_top + ((band_bot - band_top) - (MENU_ITEM_COUNT * step)) / 2 - PADDING;
+			int band_top = PADDING + PILL_SIZE;                                   // below the game title
+			int band_bot = (DEVICE_HEIGHT / FIXED_SCALE) - PADDING - PILL_SIZE;  // above the bottom hint pill (same size as gfx.c's hint band)
+			int content_h = (MENU_ITEM_COUNT - 1) * step + PILL_SIZE; // top of first pill to bottom of last pill
+			oy = band_top + ((band_bot - band_top) - content_h) / 2 - PADDING;
 			for (int i=0; i<MENU_ITEM_COUNT; i++) {
 				char* item = menu.items[i];
 				SDL_Color text_color = COLOR_WHITE;
