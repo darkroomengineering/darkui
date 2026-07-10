@@ -453,16 +453,19 @@ void State_read(void) { // from picoarch
 	int was_ff = fast_forward;
 	fast_forward = 0;
 
-	void *state = calloc(1, state_size);
+	void *state = NULL;
+	FILE *state_file = NULL;
+	char filename[MAX_PATH] = "";
+
+	state = calloc(1, state_size);
 	if (!state) {
 		LOG_error("Couldn't allocate memory for state\n");
 		goto error;
 	}
 
-	char filename[MAX_PATH];
 	State_getPath(filename);
 
-	FILE *state_file = fopen(filename, "r");
+	state_file = fopen(filename, "r");
 	if (!state_file) {
 		if (state_slot!=8) { // st8 is a default state in MiniUI and may not exist, that's okay
 			LOG_error("Error opening state file: %s (%s)\n", filename, strerror(errno));
@@ -1618,6 +1621,11 @@ static void input_poll_callback(void) {
 					case SHORTCUT_SAVE_QUIT:
 						Menu_saveState();
 						quit = 1;
+						// wake the main thread if it's blocked waiting for a frame
+						// (thread_video mode) so the quit-path doesn't stall forever
+						pthread_mutex_lock(&core_mx);
+						pthread_cond_broadcast(&core_rq);
+						pthread_mutex_unlock(&core_mx);
 						break;
 					case SHORTCUT_CYCLE_SCALE:
 						screen_scaling += 1;
@@ -2780,8 +2788,8 @@ void Core_open(const char* core_path, const char* tag_name) {
 
 	Core_getName((char*)core_path, (char*)core.name);
 	sprintf((char*)core.version, "%s (%s)", info.library_name, info.library_version);
-	strcpy((char*)core.tag, tag_name);
-	strcpy((char*)core.extensions, info.valid_extensions);
+	snprintf((char*)core.tag, sizeof(core.tag), "%s", tag_name);
+	snprintf((char*)core.extensions, sizeof(core.extensions), "%s", info.valid_extensions);
 
 	core.need_fullpath = info.need_fullpath;
 
@@ -2965,8 +2973,8 @@ int main(int argc , char* argv[]) {
 	char rom_path[MAX_PATH];
 	char tag_name[MAX_PATH];
 
-	strcpy(core_path, argv[1]);
-	strcpy(rom_path, argv[2]);
+	snprintf(core_path, sizeof(core_path), "%s", argv[1]);
+	snprintf(rom_path, sizeof(rom_path), "%s", argv[2]);
 	getEmuName(rom_path, tag_name);
 
 	LOG_info("rom_path: %s\n", rom_path);

@@ -15,7 +15,12 @@
 static char SettingsPath[256];
 
 void *InitSettingsCore(const void *default_settings, size_t settings_size, int *out_is_host) {
-	sprintf(SettingsPath, "%s/msettings.bin", getenv("USERDATA_PATH"));
+	const char *userdata_path = getenv("USERDATA_PATH");
+	if (!userdata_path) {
+		fprintf(stderr, "InitSettingsCore: USERDATA_PATH is not set\n");
+		abort();
+	}
+	snprintf(SettingsPath, sizeof(SettingsPath), "%s/msettings.bin", userdata_path);
 
 	void *settings;
 	int is_host = 0;

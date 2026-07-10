@@ -97,7 +97,7 @@ void getEmuName(const char* in_name, char* out_name) { // NOTE: both char arrays
 		// printf("    tmp2: %s\n", tmp);
 		strcpy(out_name, tmp);
 		tmp = strchr(out_name,')');
-		tmp[0] = '\0';
+		if (tmp) tmp[0] = '\0'; // no closing paren -- keep the rest of the string as-is
 	}
 	
 	// printf(" out_name: %s\n", out_name); fflush(stdout);
@@ -170,7 +170,12 @@ char* allocFile(char* path) { // caller must free!
 	FILE *file = fopen(path, "r");
 	if (file) {
 		fseek(file, 0L, SEEK_END);
-		size_t size = ftell(file);
+		long tell = ftell(file);
+		if (tell<0) { // ftell failed, don't trust the size
+			fclose(file);
+			return NULL;
+		}
+		size_t size = (size_t)tell;
 		contents = calloc(size+1, sizeof(char));
 		fseek(file, 0L, SEEK_SET);
 		fread(contents, sizeof(char), size, file);
@@ -189,8 +194,8 @@ int getInt(char* path) {
 	return i;
 }
 void putInt(char* path, int value) {
-	char buffer[8];
-	sprintf(buffer, "%d", value);
+	char buffer[16];
+	snprintf(buffer, sizeof(buffer), "%d", value);
 	putFile(path, buffer);
 }
 

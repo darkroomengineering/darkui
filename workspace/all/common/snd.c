@@ -82,6 +82,7 @@ static void SND_audioCallback(void* userdata, uint8_t* stream, int len) { // pla
 	}
 }
 static void SND_resizeBuffer(void) { // plat_sound_resize_buffer
+	size_t prev_frame_count = snd.frame_count;
 	snd.frame_count = snd.buffer_seconds * snd.sample_rate_in / snd.frame_rate;
 	if (snd.frame_count==0) return;
 
@@ -91,7 +92,14 @@ static void SND_resizeBuffer(void) { // plat_sound_resize_buffer
 	SDL_LockAudio();
 
 	int buffer_bytes = snd.frame_count * sizeof(SND_Frame);
-	snd.buffer = realloc(snd.buffer, buffer_bytes);
+	void* new_buffer = realloc(snd.buffer, buffer_bytes);
+	if (!new_buffer) { // keep the old buffer, don't resize this time
+		LOG_info("SND_resizeBuffer: realloc(%i) failed\n", buffer_bytes);
+		snd.frame_count = prev_frame_count; // keep frame_count consistent with the buffer we still hold
+		SDL_UnlockAudio();
+		return;
+	}
+	snd.buffer = new_buffer;
 
 	memset(snd.buffer, 0, buffer_bytes);
 

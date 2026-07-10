@@ -223,10 +223,12 @@ int GFX_wrapText(TTF_Font* font, char* str, int max_width, int max_lines) {
 			if (line_width>max_line_width) max_line_width = line_width;
 			tmp[0] = ' ';
 			tmp += 1;
-			prev[0] = '\n';
-			prev += 1;
-			line = prev;
-			lines += 1;
+			if (prev) { // no earlier break point (first word alone exceeds max_width) -- can't wrap, just keep going
+				prev[0] = '\n';
+				prev += 1;
+				line = prev;
+				lines += 1;
+			}
 		}
 		else { // continue
 			tmp[0] = ' ';

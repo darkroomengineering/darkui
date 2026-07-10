@@ -62,6 +62,12 @@ void InitSettings(void) {
 	// settings->jack = 0;
 	// settings->hdmi = 0;
 
+	if (is_host && settings->version!=SETTINGS_VERSION) {
+		// stale/foreign settings file -- reset to defaults, mirroring the
+		// short-read fallback in InitSettingsCore
+		*settings = DefaultSettings;
+	}
+
 	int jack = getInt(JACK_STATE_PATH);
 	int hdmi = getInt(HDMI_STATE_PATH);
 	printf("brightness: %i (hdmi: %i)\nspeaker: %i (jack: %i)\n", settings->brightness, hdmi, settings->speaker, jack); fflush(stdout);

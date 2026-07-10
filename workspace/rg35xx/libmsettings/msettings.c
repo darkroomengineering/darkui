@@ -49,6 +49,12 @@ void InitSettings(void) {
 	// these shouldn't be persisted
 	// settings->jack = 0;
 
+	if (is_host && settings->version!=SETTINGS_VERSION) {
+		// stale/foreign settings file -- reset to defaults, mirroring the
+		// short-read fallback in InitSettingsCore
+		*settings = DefaultSettings;
+	}
+
 	printf("brightness: %i\nspeaker: %i \n", settings->brightness, settings->speaker);
 
 	SetVolume(GetVolume());
