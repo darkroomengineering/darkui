@@ -3,7 +3,7 @@
 .PHONY: all clean build
 
 ifeq (,$(PLATFORM))
-$(error please specify PLATFORM, eg. make PLATFORM=trimui)
+$(error please specify PLATFORM, eg. make PLATFORM=rg35xxplus)
 endif
 
 HOST_WORKSPACE=$(shell pwd)/workspace

@@ -7,7 +7,7 @@ PLATFORM=$(UNION_PLATFORM)
 endif
 
 ifeq (,$(PLATFORM))
-$(error please specify PLATFORM, eg. PLATFORM=trimui make)
+$(error please specify PLATFORM, eg. PLATFORM=rg35xxplus make)
 endif
 
 ###########################################################

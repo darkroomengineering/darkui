@@ -34,8 +34,6 @@ make                            # everything: both platforms + package
 
 Release zips land in `./releases`. The payload zip keeps the internal name `MinUI.zip` so existing MinUI chainloaders pick it up as an update.
 
-There is also a `workspace/macos` dummy platform for compiling and iterating on the launcher UI locally with SDL2 — no device or Docker required (see `workspace/macos/notes.txt`).
-
 ## Installing
 
 See `skeleton/BASE/README.txt` (shipped as `README.txt` in the base release zip).
