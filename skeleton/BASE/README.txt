@@ -123,6 +123,11 @@ A collection is just a text file containing an ordered list of full paths to rom
   /Roms/GBA/Metroid Fusion.gba
 
 ----------------------------------------
+Thumbnails
+
+Any file or folder in a list can show box art when selected. For an item named "NAME.EXT", put a PNG at ".res/NAME.EXT.png" inside the same folder, eg. art for "/Roms/GBA/Metroid Fusion.gba" lives at "/Roms/GBA/.res/Metroid Fusion.gba.png". Images are shown as-is (no scaling on the device), so keep them at most 360 pixels on the longest side. The scripts/fetch-boxart.sh helper in the darkUI repo can fetch and size art automatically from the libretro-thumbnails project.
+
+----------------------------------------
 
 Display names
 

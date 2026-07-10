@@ -1285,13 +1285,25 @@ static void Menu_draw(SDL_Surface* screen, int show_version, int show_setting, S
 		if (tmp) tmp[0] = '\0';
 
 		snprintf(res_path, sizeof(res_path), "%s/.res/%s.png", res_root, res_name);
-		SDL_Surface* thumb = exists(res_path) ? IMG_Load(res_path) : NULL;
+
+		// Menu_draw fires on every dirty redraw (battery polling included, see
+		// PWR_update), not just selection changes -- cache the decoded surface
+		// keyed by path so navigation is the only thing that costs a PNG decode.
+		static SDL_Surface* thumb = NULL;
+		static char thumb_key[MAX_PATH] = "";
+		if (strcmp(res_path, thumb_key) != 0) {
+			if (thumb) {
+				SDL_FreeSurface(thumb);
+				thumb = NULL;
+			}
+			strcpy(thumb_key, res_path);
+			if (exists(res_path)) thumb = IMG_Load(res_path);
+		}
 		if (thumb) {
 			had_thumb = 1;
 			ox = MAX(FIXED_WIDTH - FIXED_HEIGHT, (FIXED_WIDTH - thumb->w));
 			oy = (FIXED_HEIGHT - thumb->h) / 2;
 			SDL_BlitSurface(thumb, NULL, screen, &(SDL_Rect){ox,oy});
-			SDL_FreeSurface(thumb);
 		}
 	}
 
