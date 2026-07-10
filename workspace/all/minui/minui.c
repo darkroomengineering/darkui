@@ -1282,13 +1282,12 @@ static void Menu_draw(SDL_Surface* screen, int show_version, int show_setting, S
 		char* res_name = strrchr(tmp_path, '/') + 1;
 
 		char* tmp = strrchr(res_root, '/');
-		tmp[0] = '\0';
+		if (tmp) tmp[0] = '\0';
 
 		snprintf(res_path, sizeof(res_path), "%s/.res/%s.png", res_root, res_name);
-		LOG_info("res_path: %s\n", res_path);
-		if (exists(res_path)) {
+		SDL_Surface* thumb = exists(res_path) ? IMG_Load(res_path) : NULL;
+		if (thumb) {
 			had_thumb = 1;
-			SDL_Surface* thumb = IMG_Load(res_path);
 			ox = MAX(FIXED_WIDTH - FIXED_HEIGHT, (FIXED_WIDTH - thumb->w));
 			oy = (FIXED_HEIGHT - thumb->h) / 2;
 			SDL_BlitSurface(thumb, NULL, screen, &(SDL_Rect){ox,oy});
