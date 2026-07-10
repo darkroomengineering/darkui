@@ -245,6 +245,14 @@ static void PWR_exitSleep(void) {
 	sync();
 }
 
+// "sleep" is PWR_fauxSleep (screen/audio off, CPU still running), so on
+// battery we eventually power off rather than drain flat. Upstream gave this
+// 2 minutes, which reads as "the console randomly turns itself off" — 30
+// minutes keeps the battery protection while letting a nap feel like sleep.
+// TODO(sleep-v2): make sleep->poweroff an official, visible behavior with
+// quicksave + autoresume instead of a silent timer.
+#define SLEEP_POWEROFF_DELAY 1800000 // 30 minutes
+
 static void PWR_waitForWake(void) {
 	uint32_t sleep_ticks = SDL_GetTicks();
 	while (!PAD_wake()) {
@@ -253,7 +261,7 @@ static void PWR_waitForWake(void) {
 			break;
 		}
 		SDL_Delay(200);
-		if (pwr.can_poweroff && SDL_GetTicks()-sleep_ticks>=120000) { // increased to two minutes
+		if (pwr.can_poweroff && SDL_GetTicks()-sleep_ticks>=SLEEP_POWEROFF_DELAY) {
 			if (pwr.is_charging) sleep_ticks += 60000; // check again in a minute
 			else PWR_powerOff();
 		}
