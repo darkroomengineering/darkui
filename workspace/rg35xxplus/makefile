@@ -23,6 +23,7 @@ all: readmes
 	cd boot && ./build.sh
 	cd init && make
 	cd show && make
+	cd other/uMTP-Responder && make CC=${CROSS_COMPILE}gcc LDFLAGS="-static -lpthread -lrt -s" OLD_FUNCTIONFS_DESCRIPTORS=1
 
 early: $(REQUIRES_UNZIP60) $(REQUIRES_SDL2) $(REQUIRES_DTC) $(REQUIRES_FBSET)
 	mkdir -p other

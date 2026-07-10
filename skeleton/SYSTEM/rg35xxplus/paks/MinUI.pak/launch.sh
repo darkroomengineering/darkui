@@ -34,6 +34,9 @@ keymon.elf & # > $LOGS_PATH/keymon.txt 2>&1 &
 # optional Wi-Fi on boot for SSH (no-op unless .userdata/wifi.txt exists)
 "$SYSTEM_PATH/bin/wifi.sh" &
 
+# always-on MTP over USB-C (files + OS updates without pulling the card)
+"$SYSTEM_PATH/bin/mtp.sh" start &
+
 #######################################
 
 mkdir -p "$LOGS_PATH"

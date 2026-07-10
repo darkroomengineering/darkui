@@ -53,6 +53,63 @@ SDCARD_PATH=$TF2_PATH
 SYSTEM_PATH=${SDCARD_PATH}${SYSTEM_FRAG}
 UPDATE_PATH=${SDCARD_PATH}${UPDATE_FRAG}
 
+# USB storage mode: a Tools pak touches this flag and reboots. Export the
+# card(s) to the PC before anything mounts rootfs.ext2 (which lives on the
+# ROMS partition -- block-level export while mounted would corrupt it).
+USB_FLAG=$TF1_PATH/.usbmode
+if [ -f $USB_FLAG ]; then
+	rm -f $USB_FLAG
+	CUT=$((`busybox grep -n '^BINARY' $0 | busybox cut -d ':' -f 1 | busybox tail -1` + 1))
+	busybox tail -n +$CUT "$0" | busybox uudecode -o /tmp/data
+	busybox unzip -o /tmp/data -d /tmp
+	busybox fbset -g 640 480 640 480 16
+	dd if=/tmp/usbmode of=/dev/fb0
+	sync
+
+	USB_OK=1
+	if [ ! -L $TF2_PATH ]; then
+		umount $TF2_PATH || USB_OK=0
+	fi
+	umount $TF1_PATH || USB_OK=0
+
+	if [ $USB_OK = 1 ]; then
+		/usbmond.sh ADD_LUN LUN0 /dev/block/mmcblk0p4
+		if [ -e /dev/block/mmcblk1 ] && [ -n "$SDCARD_DEVICE" ]; then
+			/usbmond.sh ADD_LUN LUN1 $SDCARD_DEVICE
+		fi
+
+		STATE=/sys/class/android_usb/android0/state
+
+		# give the host up to 15s to enumerate before watching for unplug,
+		# otherwise a not-yet-bound cable reads as disconnected and we bail
+		WAIT=15
+		while [ $WAIT -gt 0 ]; do
+			if [ -f $STATE ] && [ "`busybox cat $STATE`" = "CONFIGURED" ]; then
+				break
+			fi
+			sleep 1
+			WAIT=$((WAIT - 1))
+		done
+
+		# stay exported while the cable is attached; leave when unplugged
+		IDLE=0
+		while [ $IDLE -lt 3 ]; do
+			sleep 1
+			if [ -f $STATE ] && [ "`busybox cat $STATE`" = "CONFIGURED" ]; then
+				IDLE=0
+			else
+				IDLE=$((IDLE + 1))
+			fi
+		done
+
+		/usbmond.sh REMOVE_LUN LUN0
+		/usbmond.sh REMOVE_LUN LUN1
+	fi
+
+	sync
+	reboot
+fi
+
 # is there an update available?
 if [ -f $UPDATE_PATH ]; then
 	FLAG_PATH=/misc/.darkuinstalled
@@ -125,8 +182,8 @@ sync && reboot -p
 exit 0
 BINARY
 begin 644 data
-M4$L#!!0````(`"R@?%:^4$7P80D```A@"0`*`!P`:6YS=&%L;&EN9U54"0`#
-MTW\C9-)_(V1U>`L``00`````!`````#MW3]2*DL;!^`;NA$#=T!L;FARBAT8
+M4$L#!!0````(`+56YUR^4$7P80D```A@"0`*`!P`:6YS=&%L;&EN9U54"0`#
+M]1)-:C-.36IU>`L``00`````!`````#MW3]2*DL;!^`;NA$#=T!L;FARBAT8
 M&;L%-T`5Y0X,=0DDIXHED!(:$!@8<*NKO_[>GIX9013QG/L\)Y$!AI>A^G>Z
 M>_[]\P\`````````````````````````````````````````````````````
 M````````````````````````````````````````````````````````````
@@ -180,7 +237,7 @@ M````````````````````````````````````````````````````````````
 M````````````````````````````````````````````````````````````
 M````````````````````````````````````````````````````````````
 M``````````````````````````````````````````````#PM_@74$L#!!0`
-M```(`"R@?%;U_SFR5@D```A@"0`(`!P`=7!D871I;F=55`D``]1_(V33?R-D
+M```(`+56YUSU_SFR5@D```A@"0`(`!P`=7!D871I;F=55`D``_4236HS3DUJ
 M=7@+``$$``````0`````[=T]4N/*%@#@&[(1!]X!,3DA">4=$!&S!39`%<4.
 M"&$))%2Q!*<."0@(''!OOWY]3W=+,);M&3-SOV\2)+>E8ZETIG^DUE]_`0``
 M````````````````````````````````````````````````````````````
@@ -234,10 +291,99 @@ M````````````````````````````````````````````````````````````
 M````````````````````````````````````````````````````````````
 M````````````````````````````````````````````````````````````
 M````````````````````````````````````````````````````````````
-M`````````````````````(`_P]]02P$"'@,4````"``LH'Q6OE!%\&$)```(
-M8`D`"@`8````````````I($`````:6YS=&%L;&EN9U54!0`#TW\C9'5X"P`!
-M!``````$`````%!+`0(>`Q0````(`"R@?%;U_SFR5@D```A@"0`(`!@`````
-M``````"D@:4)``!U<&1A=&EN9U54!0`#U'\C9'5X"P`!!``````$`````%!+
-4!08``````@`"`)X````]$P``````
+M`````````````````````(`_P]]02P,$%`````@`XH'J7!`NZ)8,#P``"&`)
+M``<`'`!U<V)M;V1E550)``/(4E%J:U11:G5X"P`!!``````$`````.W=06@4
+M5P,'\`U\ASWTL(<>]N!A-_200`\1/$3PH`&A!@HV4/@4!$4*E2`H0;!(043*
+MAXA(D5(DA"(H18B4@B(%@U"P!4$#0BH(1O"00P\Y>-A##_EF=F9VWNS.)DT:
+MJ]'?;P_5F3=OWOJ1__?>O/<FE0H`````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M``````````````````````````````!OKT;E9?T_S3?=BLWQ47/']0./=EQ_
+M5[X/\'=\L_V#HS<GSM7*S[ZL/SSXY\&/>E*A.G;G]N)*;*YU=>';*[_6>Z^\
+M.?'QT?SS\.`WVX]4-[_]F^/9\_:76?GJT9MN"?!ON365_-P?6NY-L$KEMYUS
+MK?CLXLJQ\?SHGNK)BRM=YEHCY_<$Z38TEES9[;O;O^U\_=]JO?[3S%OX]F8T
+ML+F^7LY^[A^?Z3U[:C8[6W^0'=M3_>I16;*MK+3N-3I7UA^4EXG]<:]?;_--
+M^6(X;UW9_P\`[YX]U?SG_N<KO>?SI-NVE!U[-=T_V1X>S$H=6NY?:F7EZL*>
+MMZJ7)?_@_7,DR+\GT[WG\_S;E>;?WN&559R\F%WY]:KYM[+R;4G:OCGR#]X_
+MZ\^_D?/Y%=N67DV/G`]'NGG_;ZW\FVN]3<_9Y!^\?]:??WG:+:Y<2Y_B#8TE
+MLZ>?S^97YOEW\F*C$G^NU8Z-9[.LL>K8Z_]^?]?:^?<VI36P&=:??[\L9$>^
+M7L[+-2HWMN\=#J_,\^^SB_G1CX)YUC\/5DJ]K']V\<GTA8GD;WN':^=/S;;N
+M_7SEQO:LQ!?#RV<^O/YJ^OCDRY*L.E+]X.B=V\^>S[5V+8T^>'RFK$RE<F&B
+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
+M].G=4SD$;"WAVPW6(YV3[7R"^5R`+6'@].#3=&WQ^JXK[-KH/+,#>!\T!LXV
+M?QJ\G[X_$```````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M`````````````````````````/KZ/U!+`0(>`Q0````(`+56YUR^4$7P80D`
+M``A@"0`*`!@```````````"D@0````!I;G-T86QL:6YG550%``/U$DUJ=7@+
+M``$$``````0`````4$L!`AX#%`````@`M5;G7/7_.;)6"0``"&`)``@`&```
+M`````````*2!I0D``'5P9&%T:6YG550%``/U$DUJ=7@+``$$``````0`````
+M4$L!`AX#%`````@`XH'J7!`NZ)8,#P``"&`)``<`&````````````*2!/1,`
+M`'5S8FUO9&555`4``\A246IU>`L``00`````!`````!02P4&``````,``P#K
+)````BB(`````
 `
 end

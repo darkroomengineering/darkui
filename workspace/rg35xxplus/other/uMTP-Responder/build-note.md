@@ -14,6 +14,14 @@ userland it chainloads from, and every other native tool in this tree
 `arm-buildroot-linux-gnueabihf` via 32-bit compat. Built to match, using the
 toolchain container's own `CROSS_COMPILE`.
 
+**This is now wired into the platform build** — `workspace/rg35xxplus/makefile`'s
+`all:` target builds `umtprd` with the same command as part of every platform
+build, and `workspace/rg35xxplus/platform/makefile.copy` copies the resulting
+binary into `./build/SYSTEM/rg35xxplus/bin/` during release staging, same as
+`show.elf`/`fbset`/etc. Nothing needs to be built or copied by hand anymore.
+The manual command below is kept for reference (rebuilding just this binary
+in isolation, debugging a build failure, etc.):
+
 ```
 cd /Users/frz/Developer/@darkroom/darkui
 docker run --rm --platform linux/amd64 -v "$(pwd)/workspace":/root/workspace rg35xxplus-toolchain /bin/bash -c \
