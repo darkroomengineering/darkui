@@ -53,6 +53,63 @@ SDCARD_PATH=$TF2_PATH
 SYSTEM_PATH=${SDCARD_PATH}${SYSTEM_FRAG}
 UPDATE_PATH=${SDCARD_PATH}${UPDATE_FRAG}
 
+# USB storage mode: a Tools pak touches this flag and reboots. Export the
+# card(s) to the PC before anything mounts rootfs.ext2 (which lives on the
+# ROMS partition -- block-level export while mounted would corrupt it).
+USB_FLAG=$TF1_PATH/.usbmode
+if [ -f $USB_FLAG ]; then
+	rm -f $USB_FLAG
+	CUT=$((`busybox grep -n '^BINARY' $0 | busybox cut -d ':' -f 1 | busybox tail -1` + 1))
+	busybox tail -n +$CUT "$0" | busybox uudecode -o /tmp/data
+	busybox unzip -o /tmp/data -d /tmp
+	busybox fbset -g 640 480 640 480 16
+	dd if=/tmp/usbmode of=/dev/fb0
+	sync
+
+	USB_OK=1
+	if [ ! -L $TF2_PATH ]; then
+		umount $TF2_PATH || USB_OK=0
+	fi
+	umount $TF1_PATH || USB_OK=0
+
+	if [ $USB_OK = 1 ]; then
+		/usbmond.sh ADD_LUN LUN0 /dev/block/mmcblk0p4
+		if [ -e /dev/block/mmcblk1 ] && [ -n "$SDCARD_DEVICE" ]; then
+			/usbmond.sh ADD_LUN LUN1 $SDCARD_DEVICE
+		fi
+
+		STATE=/sys/class/android_usb/android0/state
+
+		# give the host up to 15s to enumerate before watching for unplug,
+		# otherwise a not-yet-bound cable reads as disconnected and we bail
+		WAIT=15
+		while [ $WAIT -gt 0 ]; do
+			if [ -f $STATE ] && [ "`busybox cat $STATE`" = "CONFIGURED" ]; then
+				break
+			fi
+			sleep 1
+			WAIT=$((WAIT - 1))
+		done
+
+		# stay exported while the cable is attached; leave when unplugged
+		IDLE=0
+		while [ $IDLE -lt 3 ]; do
+			sleep 1
+			if [ -f $STATE ] && [ "`busybox cat $STATE`" = "CONFIGURED" ]; then
+				IDLE=0
+			else
+				IDLE=$((IDLE + 1))
+			fi
+		done
+
+		/usbmond.sh REMOVE_LUN LUN0
+		/usbmond.sh REMOVE_LUN LUN1
+	fi
+
+	sync
+	reboot
+fi
+
 # is there an update available?
 if [ -f $UPDATE_PATH ]; then
 	FLAG_PATH=/misc/.darkuinstalled
