@@ -93,14 +93,7 @@ static void getUniqueName(Entry* entry, char* out_name) {
 	char emu_tag[MAX_PATH];
 	getEmuName(entry->path, emu_tag);
 
-	char *tmp;
-	strcpy(out_name, entry->name);
-	tmp = out_name + strlen(out_name);
-	strcpy(tmp, " (");
-	tmp = out_name + strlen(out_name);
-	strcpy(tmp, emu_tag);
-	tmp = out_name + strlen(out_name);
-	strcpy(tmp, ")");
+	snprintf(out_name, MAX_PATH, "%s (%s)", entry->name, emu_tag);
 }
 
 static void Directory_index(Directory* self) {
@@ -674,14 +667,15 @@ static Array* getCollection(char* path) {
 			char sd_path[MAX_PATH];
 			snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, line);
 			if (exists(sd_path)) {
+				char* filename = strrchr(sd_path, '/')+1;
+				if (hide(filename)) continue;
+
+				char emu_name[MAX_PATH];
+				getEmuName(sd_path, emu_name);
+				if (!hasEmu(emu_name)) continue;
+
 				int type = suffixMatch(".pak", sd_path) ? ENTRY_PAK : ENTRY_ROM; // ???
 				Array_push(entries, Entry_new(sd_path, type));
-
-				// char emu_name[256];
-				// getEmuName(sd_path, emu_name);
-				// if (hasEmu(emu_name)) {
-					// Array_push(entries, Entry_new(sd_path, ENTRY_ROM));
-				// }
 			}
 		}
 		fclose(file);
@@ -1015,6 +1009,8 @@ static void openRom(char* path, char* last) {
 	char emu_path[MAX_PATH];
 	getEmuPath(emu_name, emu_path);
 
+	if (!exists(emu_path)) return; // emulator pak not installed, don't queue
+
 	addRecent(recent_path, recent_alias); // yiiikes
 	saveLast(last==NULL ? sd_path : last);
 
@@ -1078,14 +1074,14 @@ static void Entry_open(Entry* self) {
 	recent_alias = self->name;  // yiiikes
 	if (self->type==ENTRY_ROM) {
 		char *last = NULL;
+		char filename[MAX_PATH];
+		char last_path[MAX_PATH];
 		if (prefixMatch(COLLECTIONS_PATH, top->path)) {
 			char* tmp;
-			char filename[MAX_PATH];
 
 			tmp = strrchr(self->path, '/');
 			if (tmp) strcpy(filename, tmp+1);
 
-			char last_path[MAX_PATH];
 			snprintf(last_path, sizeof(last_path), "%s/%s", top->path, filename);
 			last = last_path;
 		}
@@ -1430,7 +1426,10 @@ static int Menu_deleteSelectedCollection(SDL_Surface* screen) {
 	snprintf(msg, sizeof(msg), "Delete collection\n\"%s\"?\n\nYour games are kept.", entry->name);
 	if (!Menu_confirm(screen, msg)) return 1; // cancelled, but redraw
 
-	unlink(entry->path);
+	if (unlink(entry->path)!=0) {
+		LOG_info("failed to delete collection: %s\n", entry->path);
+		return 0; // delete failed, nothing changed, don't rebuild as if deleted
+	}
 
 	// rebuild the current directory (Collections) in place
 	char cpath[MAX_PATH]; strcpy(cpath, top->path);
@@ -1440,7 +1439,10 @@ static int Menu_deleteSelectedCollection(SDL_Surface* screen) {
 	Array_push(stack, top);
 
 	int cnt = top->entries->count;
-	if (cnt==0) { closeDirectory(); } // no collections left -> back out
+	if (cnt==0) {
+		if (stack->count>1) { closeDirectory(); } // no collections left -> back out
+		else { top->selected = 0; top->start = 0; top->end = 0; } // last stack frame (promoted root); leave empty dir in place
+	}
 	else {
 		if (top->selected>=cnt) top->selected = cnt-1;
 		top->start = 0;
@@ -1578,7 +1580,9 @@ static void Menu_handleInput(SDL_Surface* screen, unsigned long now, int show_se
 
 			if (total>0) readyResume(top->entries->items[top->selected]);
 		}
-		else if (PAD_justPressed(BTN_Y)) {
+		else if (PAD_justPressed(BTN_Y) && stack->count>1 && total>0 &&
+			prefixMatch(COLLECTIONS_PATH, ((Entry*)top->entries->items[top->selected])->path) &&
+			suffixMatch(".txt", ((Entry*)top->entries->items[top->selected])->path)) {
 			if (Menu_deleteSelectedCollection(screen)) { total = top->entries->count; *dirty = 1; }
 		}
 		else if (PAD_justPressed(BTN_B) && stack->count>1) {
