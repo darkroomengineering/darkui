@@ -36,7 +36,7 @@ static int	input_fd = 0;
 static struct input_event ev;
 
 static pthread_t hdmi_pt;
-#define HDMI_STATE_PATH "/sys/class/extcon/hdmi/cable.0/state"
+#define HDMI_STATE_PATH "/sys/class/switch/hdmi/cable.0/state"
 
 int getInt(char* path) {
 	int i = 0;
