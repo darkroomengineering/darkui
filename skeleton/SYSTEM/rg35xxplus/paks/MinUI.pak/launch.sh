@@ -38,6 +38,15 @@ keymon.elf & # > $LOGS_PATH/keymon.txt 2>&1 &
 
 mkdir -p "$LOGS_PATH"
 mkdir -p "$SHARED_USERDATA_PATH/.minui"
+
+# freshness marker: proves the OS reached this launcher on THIS boot. If boot.txt
+# is stale, the boot chain failed earlier (not the launcher). uptime is logged
+# because these devices have no reliable RTC, so wall-clock alone can't prove it.
+{
+	echo "boot:  $(date '+%F %T')  up $(cut -d' ' -f1 /proc/uptime 2>/dev/null)s"
+	echo "build: $(head -1 "$SDCARD_PATH/.system/version.txt" 2>/dev/null)"
+} > "$LOGS_PATH/boot.txt"
+
 AUTO_PATH="$USERDATA_PATH/auto.sh"
 if [ -f "$AUTO_PATH" ]; then
 	"$AUTO_PATH" # > $LOGS_PATH/auto.txt 2>&1
@@ -66,7 +75,10 @@ NEXT_PATH="/tmp/next"
 touch "$EXEC_PATH" && sync
 while [ -f "$EXEC_PATH" ]; do
 	. $HDMI_EXPORT_PATH
-	minui.elf > $LOGS_PATH/minui.txt 2>&1
+	# stamp each run so a stale log can't masquerade as a fresh boot, and so the
+	# log names which build produced it
+	echo "--- minui $(date '+%F %T') up $(cut -d' ' -f1 /proc/uptime 2>/dev/null)s [$(head -1 "$SDCARD_PATH/.system/version.txt" 2>/dev/null)] ---" > $LOGS_PATH/minui.txt
+	minui.elf >> $LOGS_PATH/minui.txt 2>&1
 	echo `date +'%F %T'` > "$DATETIME_PATH"
 	sync
 	
