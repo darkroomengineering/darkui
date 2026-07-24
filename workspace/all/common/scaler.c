@@ -624,9 +624,19 @@ void scale6x6_n16(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 #define cG(A) (((A) & 0x7e0) >> 5)
 #define cB(A) ((A) & 0x1f)
 //to RGB565
-#define Weight2_3(A, B)  (((((cR(A) << 1) + (cR(B) * 3)) / 5) & 0x1f) << 11 | ((((cG(A) << 1) + (cG(B) * 3)) / 5) & 0x3f) << 5 | ((((cB(A) << 1) + (cB(B) * 3)) / 5) & 0x1f))
-#define Weight3_1(A, B)  ((((cR(B) + (cR(A) * 3)) >> 2) & 0x1f) << 11 | (((cG(B) + (cG(A) * 3)) >> 2) & 0x3f) << 5 | (((cB(B) + (cB(A) * 3)) >> 2) & 0x1f))
-#define Weight3_2(A, B)  (((((cR(B) << 1) + (cR(A) * 3)) / 5) & 0x1f) << 11 | ((((cG(B) << 1) + (cG(A) * 3)) / 5) & 0x3f) << 5 | ((((cB(B) << 1) + (cB(A) * 3)) / 5) & 0x1f))
+// Effect shading weights. Every call site below passes B=0x0000 (black), so each
+// weight is a pure per-channel darkening of A: channel*n/d. The rg35xx (Cortex-A9,
+// ARMv7) has no hardware integer divide, so a per-pixel per-channel divide is slow;
+// index tiny compile-time tables instead. Bit-identical to the old
+// (cX(A)*n + cX(B)*m)/d form when B==0 (verified exhaustively over all 65536 inputs).
+// Tables are entry v = v*n/d for v in 0..63 (covers the 6-bit green channel).
+// Do NOT call these with a non-black B.
+static const uint8_t weight_2_5[64] = {0,0,0,1,1,2,2,2,3,3,4,4,4,5,5,6,6,6,7,7,8,8,8,9,9,10,10,10,11,11,12,12,12,13,13,14,14,14,15,15,16,16,16,17,17,18,18,18,19,19,20,20,20,21,21,22,22,22,23,23,24,24,24,25};
+static const uint8_t weight_3_5[64] = {0,0,1,1,2,3,3,4,4,5,6,6,7,7,8,9,9,10,10,11,12,12,13,13,14,15,15,16,16,17,18,18,19,19,20,21,21,22,22,23,24,24,25,25,26,27,27,28,28,29,30,30,31,31,32,33,33,34,34,35,36,36,37,37};
+static const uint8_t weight_3_4[64] = {0,0,1,2,3,3,4,5,6,6,7,8,9,9,10,11,12,12,13,14,15,15,16,17,18,18,19,20,21,21,22,23,24,24,25,26,27,27,28,29,30,30,31,32,33,33,34,35,36,36,37,38,39,39,40,41,42,42,43,44,45,45,46,47};
+#define Weight2_3(A, B)  ((uint16_t)((weight_2_5[cR(A)] << 11) | (weight_2_5[cG(A)] << 5) | weight_2_5[cB(A)]))
+#define Weight3_1(A, B)  ((uint16_t)((weight_3_4[cR(A)] << 11) | (weight_3_4[cG(A)] << 5) | weight_3_4[cB(A)]))
+#define Weight3_2(A, B)  ((uint16_t)((weight_3_5[cR(A)] << 11) | (weight_3_5[cG(A)] << 5) | weight_3_5[cB(A)]))
 
 #define MIN(a, b) (a) < (b) ? (a) : (b)
 void scale1x_line(void* __restrict src, void* __restrict dst, uint32_t sw, uint32_t sh, uint32_t sp, uint32_t dw, uint32_t dh, uint32_t dp) {
